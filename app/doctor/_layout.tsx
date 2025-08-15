@@ -6,11 +6,11 @@ import { useAuth } from '../../contexts/AuthContext'
 export default function DoctorLayout() {
   const { user, userRole, loading } = useAuth()
 
-  console.log('Doctor layout - auth state:', { 
-    hasUser: !!user, 
-    role: userRole?.role, 
-    loading 
-  })
+  // console.log('Doctor layout - auth state:', { 
+  //   hasUser: !!user, 
+  //   role: userRole?.role, 
+  //   loading 
+  // })
 
   // Only redirect if auth is fully loaded and user is not a doctor
   useEffect(() => {

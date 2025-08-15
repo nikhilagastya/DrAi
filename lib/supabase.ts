@@ -89,8 +89,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web', // Only enable for web
-    flowType: 'pkce', // Use PKCE flow for better security
-    debug: __DEV__, // Enable debug logging in development
+    // flowType: 'pkce', // Use PKCE flow for better security
+    debug: false, // Enable debug logging in development
   },
   global: {
     headers: {

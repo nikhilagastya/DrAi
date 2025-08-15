@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, ChatMessage, Patient } from '../../lib/supabase'
-import { PanGestureHandler } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.8
@@ -46,6 +46,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isUser }) => {
     </View>
   )
 }
+
+
 
 
 
@@ -365,6 +367,7 @@ const PatientChatScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <GestureHandlerRootView>
       <PanGestureHandler onGestureEvent={handlePanGesture}>
         <Animated.View style={{ flex: 1 }}>
           <KeyboardAvoidingView
@@ -544,6 +547,7 @@ const PatientChatScreen: React.FC = () => {
           )}
         </Animated.View>
       </PanGestureHandler>
+      </GestureHandlerRootView>
     </SafeAreaView>
   )
 }

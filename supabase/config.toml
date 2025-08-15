@@ -1,0 +1,47 @@
+# Supabase Configuration for Healthcare App
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[functions]
+# Changed from "verify_jwt = false" to proper map structure
+[functions.verify_jwt]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+# Edge runtime configuration (port is not configurable)
+[edge_runtime]
+enabled = true
+
+[analytics]
+enabled = false
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326

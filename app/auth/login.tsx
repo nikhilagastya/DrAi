@@ -30,8 +30,7 @@ const LoginScreen: React.FC = () => {
       }
 
       if (data?.user) {
-        // Don't manually navigate here - let the root layout handle it
-        // The AuthContext will update the user state and trigger navigation
+      
         console.log('Login successful, user:', data.user.email)
       }
     } catch (error) {

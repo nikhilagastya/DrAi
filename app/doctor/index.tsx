@@ -5,11 +5,12 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Visit, FieldDoctor } from '../../lib/supabase'
+import Loader from '~/components/Loader'
 
 const index: React.FC = () => {
   console.log("🏠 DoctorHomeScreen rendered")
   
-  const { userProfile, user } = useAuth()
+  const { userProfile, user,loading } = useAuth()
   const [recentVisits, setRecentVisits] = useState<Visit[]>([])
   const [todayVisits, setTodayVisits] = useState<Visit[]>([])
   const [stats, setStats] = useState({
@@ -17,9 +18,12 @@ const index: React.FC = () => {
     visitsThisWeek: 0,
     visitsToday: 0,
   })
-  const [loading, setLoading] = useState(true)
+  const [loading1, setLoading1] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  if(loading){
+    return <Loader isOpen={loading}></Loader>
+  }
   // Handle both old and new auth context patterns
   const doctor = userProfile as FieldDoctor
   
@@ -37,7 +41,7 @@ const index: React.FC = () => {
   const loadDashboardData = async () => {
     if (!doctor?.id) {
       console.log("⚠️ No doctor ID, skipping data load")
-      setLoading(false)
+      setLoading1(false)
       return
     }
 
@@ -115,7 +119,7 @@ const index: React.FC = () => {
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error)
     } finally {
-      setLoading(false)
+      setLoading1(false)
       setRefreshing(false)
     }
   }
@@ -496,3 +500,4 @@ const styles = StyleSheet.create({
 })
 
 export default index
+

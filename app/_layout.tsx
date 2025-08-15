@@ -21,11 +21,10 @@ const theme = {
 function RootLayoutNav() {
   const { loading } = useAuth()
 
-  // Show loader while auth is loading
-  // Navigation is handled directly in AuthContext
-  if (loading) {
-    return <Loader isOpen={true} />
-  }
+ 
+  // if (loading) {
+  //   return <Loader isOpen={true} />
+  // }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

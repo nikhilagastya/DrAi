@@ -19,6 +19,10 @@ export default function PatientLayout() {
   // if (!user || !userRole || userRole.role !== 'patient') {
   //   return null // Will redirect in useEffect
   // }
+ useEffect(() => {
+  console.log("hello")
+  router.push('/patient/profile') // Redirect to the main patient dashboard
+ }, [])
  
 
   return (
