@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, FieldDoctor } from '../../lib/supabase'
+import { router } from 'expo-router'
 
 const DoctorProfileScreen: React.FC = () => {
   const { userProfile, signOut, refreshProfile } = useAuth()
@@ -58,16 +59,9 @@ const DoctorProfileScreen: React.FC = () => {
 
   const handleSignOut = async () => {
     
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
-      ]
-    )
+   signOut()
+   router.replace('/auth') // Redirect to auth screen after sign out
   }
-
   if (!doctor) {
     return (
       <SafeAreaView style={styles.container}>

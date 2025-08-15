@@ -2,25 +2,41 @@ import React, { useEffect } from 'react'
 import { Tabs, router } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useAuth } from '../../contexts/AuthContext'
-import Loader from '~/components/Loader'
-
 
 export default function DoctorLayout() {
   const { user, userRole, loading } = useAuth()
- 
 
+  console.log('Doctor layout - auth state:', { 
+    hasUser: !!user, 
+    role: userRole?.role, 
+    loading 
+  })
+
+  // Only redirect if auth is fully loaded and user is not a doctor
   useEffect(() => {
-    if (!loading && (!user || !userRole || userRole.role !== 'field_doctor')) {
-      // User is not authenticated or not a doctor, redirect to auth
-      router.replace('/auth')
-    
+    if (!loading) {
+      if (!user || !userRole) {
+        console.log('No user or role in doctor layout, redirecting to auth')
+        router.replace('/auth')
+      } else if (userRole.role !== 'field_doctor') {
+        console.log('User is not a doctor, redirecting based on role:', userRole.role)
+        switch (userRole.role) {
+          case 'patient':
+            router.replace('/patient')
+            break
+          case 'admin':
+            router.replace('/admin')
+            break
+          default:
+            router.replace('/auth')
+        }
+      }
     }
   }, [user, userRole, loading])
 
-  
-
-  if (!user || !userRole || userRole.role !== 'field_doctor') {
-    return null // Will redirect in useEffect
+  // Show nothing while loading or while redirecting
+  if (loading || !user || !userRole || userRole.role !== 'field_doctor') {
+    return null
   }
 
   return (
@@ -91,4 +107,3 @@ export default function DoctorLayout() {
     </Tabs>
   )
 }
-

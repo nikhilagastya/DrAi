@@ -1,24 +1,25 @@
 import React, { useEffect } from 'react'
-import { Tabs, useRouter } from 'expo-router'
+import { Tabs, router, useRouter } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useAuth } from '../../contexts/AuthContext'
 import Loader from '~/components/Loader'
 
 export default function PatientLayout() {
-  const { user, userRole, loading } = useAuth()
-  const router = useRouter()
+  // const { user, userRole, loading } = useAuth()
+  // const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && (!user || !userRole || userRole.role !== 'patient')) {
-      // User is not authenticated or not a patient, redirect to auth
-      router.replace('/auth')
-    }
-  }, [user, userRole, loading])
+  // useEffect(() => {
+  //   if (!loading && (!user || !userRole || userRole.role !== 'patient')) {
+  //     // User is not authenticated or not a patient, redirect to auth
+  //     router.replace('/auth')
+  //   }
+  // }, [user, userRole, loading])
 
 
-  if (!user || !userRole || userRole.role !== 'patient') {
-    return null // Will redirect in useEffect
-  }
+  // if (!user || !userRole || userRole.role !== 'patient') {
+  //   return null // Will redirect in useEffect
+  // }
+ 
 
   return (
     <Tabs

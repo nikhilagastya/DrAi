@@ -6,9 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Visit, FieldDoctor } from '../../lib/supabase'
 
-const DoctorHomeScreen: React.FC = () => {
-  console.log("hi from DoctorHomeScreen")
-  const { userProfile } = useAuth()
+const index: React.FC = () => {
+  console.log("🏠 DoctorHomeScreen rendered")
+  
+  const { userProfile, user } = useAuth()
   const [recentVisits, setRecentVisits] = useState<Visit[]>([])
   const [todayVisits, setTodayVisits] = useState<Visit[]>([])
   const [stats, setStats] = useState({
@@ -19,14 +20,28 @@ const DoctorHomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  // Handle both old and new auth context patterns
   const doctor = userProfile as FieldDoctor
+  
+  console.log("👨‍⚕️ Doctor data:", { 
+    hasDoctor: !!doctor, 
+    doctorName: doctor?.name,
+    hasUser: !!user 
+  })
 
   useEffect(() => {
+    console.log("🔄 useEffect triggered, loading dashboard data")
     loadDashboardData()
-  }, [])
+  }, [doctor?.id])
 
   const loadDashboardData = async () => {
-    if (!doctor) return
+    if (!doctor?.id) {
+      console.log("⚠️ No doctor ID, skipping data load")
+      setLoading(false)
+      return
+    }
+
+    console.log("📊 Loading dashboard data for doctor:", doctor.id)
 
     try {
       // Get recent visits
@@ -41,8 +56,9 @@ const DoctorHomeScreen: React.FC = () => {
         .limit(5)
 
       if (visitsError) {
-        console.error('Error loading visits:', visitsError)
+        console.error('❌ Error loading visits:', visitsError)
       } else {
+        console.log("✅ Recent visits loaded:", visits?.length || 0)
         setRecentVisits(visits || [])
       }
 
@@ -63,8 +79,9 @@ const DoctorHomeScreen: React.FC = () => {
         .order('visit_date', { ascending: false })
 
       if (todayError) {
-        console.error('Error loading today visits:', todayError)
+        console.error('❌ Error loading today visits:', todayError)
       } else {
+        console.log("✅ Today's visits loaded:", todayData?.length || 0)
         setTodayVisits(todayData || [])
       }
 
@@ -86,15 +103,17 @@ const DoctorHomeScreen: React.FC = () => {
 
       if (!weekError && !patientsError) {
         const uniquePatientIds = new Set(uniquePatients?.map(v => v.patient_id) || [])
-        setStats({
+        const newStats = {
           totalPatients: uniquePatientIds.size,
           visitsThisWeek: weekVisits?.length || 0,
           visitsToday: todayData?.length || 0,
-        })
+        }
+        console.log("📈 Stats loaded:", newStats)
+        setStats(newStats)
       }
 
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      console.error('❌ Error loading dashboard data:', error)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -102,6 +121,7 @@ const DoctorHomeScreen: React.FC = () => {
   }
 
   const onRefresh = () => {
+    console.log("🔄 Refreshing dashboard data")
     setRefreshing(true)
     loadDashboardData()
   }
@@ -123,6 +143,21 @@ const DoctorHomeScreen: React.FC = () => {
     return issues.length > 0 ? issues : ['Normal']
   }
 
+  // Show loading or error state if no doctor data
+  if (!doctor) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#ccc" />
+          <Text style={styles.errorText}>Unable to load doctor profile</Text>
+          <Button mode="contained" onPress={() => loadDashboardData()}>
+            Retry
+          </Button>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -139,7 +174,7 @@ const DoctorHomeScreen: React.FC = () => {
               <View style={styles.welcomeTextContainer}>
                 <Text style={styles.welcomeText}>Welcome, Dr. {doctor?.name}!</Text>
                 <Text style={styles.welcomeSubText}>
-                  {doctor?.specialization}
+                  {doctor?.specialization || 'General Practice'}
                 </Text>
               </View>
             </View>
@@ -188,7 +223,7 @@ const DoctorHomeScreen: React.FC = () => {
                     <View style={styles.visitHeader}>
                       <View style={styles.visitInfo}>
                         <Text style={styles.patientName}>
-                          {(visit as any).patients?.name}
+                          {(visit as any).patients?.name || 'Unknown Patient'}
                         </Text>
                         <Text style={styles.visitTime}>
                           {formatDate(visit.visit_date)}
@@ -245,7 +280,7 @@ const DoctorHomeScreen: React.FC = () => {
                     <View style={styles.visitHeader}>
                       <View style={styles.visitInfo}>
                         <Text style={styles.patientName}>
-                          {(visit as any).patients?.name}
+                          {(visit as any).patients?.name || 'Unknown Patient'}
                         </Text>
                         <Text style={styles.visitTime}>
                           {formatDate(visit.visit_date)}
@@ -320,6 +355,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    marginVertical: 16,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: 16,
@@ -448,5 +495,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default DoctorHomeScreen
-
+export default index

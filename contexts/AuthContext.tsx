@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
+import { router } from 'expo-router';
 import {
   supabase,
   getUserRole,
@@ -36,6 +37,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userProfile, setUserProfile] = useState<Patient | FieldDoctor | Admin | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Refs to prevent infinite loops
+  const lastNavigatedRole = useRef<string | null>(null);
+  const lastNavigatedUserId = useRef<string | null>(null);
+  const isNavigating = useRef(false);
+
+  // Navigation helper with guards
+  const navigateBasedOnRole = useCallback((role: string | null, currentUser: User | null) => {
+    const userId = currentUser?.id || null;
+    
+    // Prevent duplicate navigation
+    if (isNavigating.current) {
+      console.log('🚫 Navigation already in progress, skipping');
+      return;
+    }
+    
+    // Check if we already navigated for this user/role combination
+    if (lastNavigatedRole.current === role && lastNavigatedUserId.current === userId) {
+      console.log('🚫 Already navigated for this user/role, skipping');
+      return;
+    }
+    
+    console.log('🧭 Navigating based on role:', { role, hasUser: !!currentUser, userId });
+    
+    isNavigating.current = true;
+    lastNavigatedRole.current = role;
+    lastNavigatedUserId.current = userId;
+    
+    // Use setTimeout to avoid navigation during render
+    setTimeout(() => {
+      try {
+        if (!currentUser) {
+          console.log('🚫 No user, redirecting to auth');
+          router.replace('/auth');
+        } else if (!role) {
+          console.log('⚠️ User without role, staying in auth');
+          router.replace('/auth');
+        } else {
+          switch (role) {
+            case 'patient':
+              console.log('🏥 Redirecting to patient dashboard');
+              router.push('/patient/profile');
+              break;
+            case 'field_doctor':
+              console.log('👨‍⚕️ Redirecting to doctor dashboard');
+              router.push('/doctor/profile');
+              break;
+            case 'admin':
+              console.log('👔 Redirecting to admin dashboard');
+              router.push('/admin');
+              break;
+            default:
+              console.log('❌ Unknown role, redirecting to auth');
+              router.push('/');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Navigation error:', error);
+      } finally {
+        // Reset navigation flag after a delay
+        setTimeout(() => {
+          isNavigating.current = false;
+        }, 1000);
+      }
+    }, 100);
+  }, []);
 
   // Fetch role & profile together with enhanced error handling
   const loadUserData = useCallback(async (userId: string) => {
@@ -49,7 +116,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         
         const getRolePromise = getUserRole(id);
-        
         return Promise.race([getRolePromise, timeoutPromise]);
       };
       
@@ -61,11 +127,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('⚠️ No role found for user:', userId);
         setUserRole(null);
         setUserProfile(null);
-        return;
+        return null;
       }
       
       setUserRole(roleData);
-  
+
       if (roleData?.role) {
         console.log('👤 Loading profile for role:', roleData.role);
         let profile: Patient | FieldDoctor | Admin | null = null;
@@ -109,29 +175,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('❌ Error loading profile:', profileError);
           setUserProfile(null);
         }
+
+        return roleData.role;
       } else {
         console.warn('⚠️ Role data exists but no role specified');
         setUserProfile(null);
+        return null;
       }
       
-      console.log('✅ loadUserData completed successfully');
-      
     } catch (error) {
-      console.error( error);
+      console.error('❌ Error in loadUserData:', error);
       setUserRole(null);
       setUserProfile(null);
+      return null;
     }
   }, []);
 
-  // Run once on mount + when auth changes
+  // Separate effect for initial auth check
   useEffect(() => {
     let mounted = true;
-  
+
     const initAuth = async () => {
       try {
         console.log('🚀 Initializing auth...');
         setLoading(true);
-  
+
         // Get current session
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
@@ -141,61 +209,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentUser = session?.user ?? null;
         console.log('👤 Current user from session:', currentUser?.email || 'none');
         
-        if (mounted) setUser(currentUser);
-  
-        if (currentUser) {
-          console.log('📱 About to load user data...');
+        if (mounted) {
+          setUser(currentUser);
           
-          // Set a maximum timeout for the entire loading process
-          const loadDataWithTimeout = Promise.race([
-            loadUserData(currentUser.id),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Overall loading timeout after 10 seconds')), 10000)
-            )
-          ]);
-          
-          try {
-            await loadDataWithTimeout;
-            console.log('✅ User data loading completed');
-          } catch (timeoutError) {
-            console.error('⏰ User data loading timed out:', timeoutError);
+          if (currentUser) {
+            console.log('📱 About to load user data...');
             
-            // Fallback: Try to manually query the user role
-            console.log('🔄 Attempting direct database query as fallback...');
             try {
-              const { data: roleData, error: roleError } = await supabase
-                .from('user_roles')
-                .select('*')
-                .eq('auth_user_id', currentUser.id)
-                .single();
-                
-              if (!roleError && roleData) {
-                console.log('✅ Direct query successful:', roleData);
-                setUserRole(roleData);
-              } else {
-                console.error('❌ Direct query failed:', roleError);
-                // Set a default role to unblock the user
-                console.log('🚨 Setting fallback role to unblock user');
-                setUserRole({
-                  id: 'fallback',
-                  auth_user_id: currentUser.id,
-                  role: 'field_doctor', // Based on email doc@gmail.com
-                  created_at: new Date().toISOString()
-                });
+              const role = await loadUserData(currentUser.id);
+              console.log('✅ User data loading completed, role:', role);
+              
+              // Navigate after everything is loaded
+              if (mounted) {
+                navigateBasedOnRole(role, currentUser);
               }
-            } catch (directQueryError) {
-              console.error('❌ Direct query error:', directQueryError);
+            } catch (error) {
+              console.error('❌ Error loading user data:', error);
+              if (mounted) {
+                navigateBasedOnRole(null, currentUser);
+              }
             }
+          } else {
+            navigateBasedOnRole(null, null);
           }
-        } else {
-          console.log('🚫 No current user, clearing role and profile');
-          setUserRole(null);
-          setUserProfile(null);
         }
       } catch (error) {
         console.error('❌ Error initializing auth:', error);
-        setUserRole(null);
-        setUserProfile(null);
+        if (mounted) {
+          navigateBasedOnRole(null, null);
+        }
       } finally {
         if (mounted) {
           console.log('✅ Auth initialization complete, setting loading to false');
@@ -203,65 +245,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-  
+
     initAuth();
-  
-    // Listen for login/logout with timeout
+
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty dependency array - only run once
+
+  // Separate effect for auth state changes
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email || 'no user');
         
-        if (!mounted) return;
+        // Reset navigation tracking on auth state change
+        lastNavigatedRole.current = null;
+        lastNavigatedUserId.current = null;
+        isNavigating.current = false;
         
         setLoading(true);
         const authUser = session?.user ?? null;
         setUser(authUser);
-  
+
         if (authUser) {
           console.log('👤 User authenticated, loading data...');
           
           try {
-            // Set timeout for auth state change loading too
-            await Promise.race([
-              loadUserData(authUser.id),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Auth state change timeout')), 8000)
-              )
-            ]);
-          } catch (stateChangeError) {
-            console.error('⏰ Auth state change loading timed out:', stateChangeError);
+            const role = await loadUserData(authUser.id);
+            console.log('✅ Auth state change data loading completed, role:', role);
             
-            // Try direct query as fallback
-            try {
-              const { data: roleData } = await supabase
-                .from('user_roles')
-                .select('*')
-                .eq('auth_user_id', authUser.id)
-                .single();
-                
-              if (roleData) {
-                setUserRole(roleData);
-              }
-            } catch (fallbackError) {
-              console.error('❌ Fallback query failed:', fallbackError);
-            }
+            // Navigate after everything is loaded
+            navigateBasedOnRole(role, authUser);
+          } catch (error) {
+            console.error('❌ Error loading user data on auth change:', error);
+            navigateBasedOnRole(null, authUser);
           }
         } else {
           console.log('🚫 User signed out, clearing data...');
           setUserRole(null);
           setUserProfile(null);
+          navigateBasedOnRole(null, null);
         }
-  
+
         console.log('✅ Auth state change complete, setting loading to false');
         setLoading(false);
       }
     );
-  
+
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadUserData]);
+  }, []); // Empty dependency array - set up listener once
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -274,6 +309,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: error?.message 
       });
       
+      // Navigation will be handled by onAuthStateChange
       return { data, error };
     } catch (error) {
       console.error('❌ Sign in error:', error);
@@ -398,6 +434,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('✅ Profile created successfully')
+      
+      // Don't navigate here - let the auth state change handle it
       return { error: null, data }
 
     } catch (error) {
@@ -409,7 +447,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       console.log('🚪 Signing out...');
+      // Reset navigation tracking
+      lastNavigatedRole.current = null;
+      lastNavigatedUserId.current = null;
+      isNavigating.current = false;
+      
       await supabase.auth.signOut();
+      // Navigation will be handled by onAuthStateChange
     } catch (error) {
       console.error('❌ Sign out error:', error);
     }
