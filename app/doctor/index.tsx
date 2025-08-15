@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Visit, FieldDoctor } from '../../lib/supabase'
 
 const DoctorHomeScreen: React.FC = () => {
+  console.log("hi from DoctorHomeScreen")
   const { userProfile } = useAuth()
   const [recentVisits, setRecentVisits] = useState<Visit[]>([])
   const [todayVisits, setTodayVisits] = useState<Visit[]>([])

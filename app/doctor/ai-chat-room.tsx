@@ -54,6 +54,7 @@ const AIChatRoomScreen: React.FC = () => {
     try {
       // Parse vital data from params if provided
       let vitals: VitalData | null = null
+      console.log(params.vitals)
       if (params.vitals) {
         vitals = JSON.parse(decodeURIComponent(params.vitals))
         setVitalData(vitals)

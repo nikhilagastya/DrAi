@@ -43,11 +43,20 @@ const SignUpScreen: React.FC = () => {
   ]
 
   const validateForm = () => {
+    // Basic validation
     if (!email || !password || !confirmPassword || !name) {
-      Alert.alert('Error', 'Please fill in all required fields')
+      Alert.alert('Error', 'Please fill in all required fields (Name, Email, Password)')
       return false
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address')
+      return false
+    }
+
+    // Password validation
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match')
       return false
@@ -58,14 +67,27 @@ const SignUpScreen: React.FC = () => {
       return false
     }
 
-    if (role === 'patient' && !age) {
-      Alert.alert('Error', 'Age is required for patients')
-      return false
+    // Role-specific validation
+    if (role === 'patient') {
+      if (!age || isNaN(parseInt(age)) || parseInt(age) < 1 || parseInt(age) > 150) {
+        Alert.alert('Error', 'Please enter a valid age (1-150)')
+        return false
+      }
     }
 
-    if (role === 'field_doctor' && (!specialization || !licenseNumber)) {
-      Alert.alert('Error', 'Specialization and license number are required for doctors')
-      return false
+    if (role === 'field_doctor') {
+      if (!specialization.trim()) {
+        Alert.alert('Error', 'Specialization is required for doctors')
+        return false
+      }
+      if (!licenseNumber.trim()) {
+        Alert.alert('Error', 'License number is required for doctors')
+        return false
+      }
+      if (yearsOfExperience && (isNaN(parseInt(yearsOfExperience)) || parseInt(yearsOfExperience) < 0)) {
+        Alert.alert('Error', 'Please enter a valid number for years of experience')
+        return false
+      }
     }
 
     return true
@@ -76,37 +98,67 @@ const SignUpScreen: React.FC = () => {
 
     setLoading(true)
     try {
+      // Prepare user data object
       const userData: any = {
         role,
-        name,
-        phone,
+        name: name.trim(),
+        phone: phone.trim() || null,
       }
 
+      // Add role-specific fields
       if (role === 'patient') {
-        userData.age = parseInt(age)
+        userData.age = age.trim()  // Keep as string, will be converted in function
         userData.gender = gender
-        userData.address = address
-        userData.emergencyContactName = emergencyContactName
-        userData.emergencyContactPhone = emergencyContactPhone
-        userData.medicalHistory = medicalHistory
-        userData.allergies = allergies
-        userData.currentMedications = currentMedications
+        userData.address = address.trim() || null
+        userData.emergencyContactName = emergencyContactName.trim() || null
+        userData.emergencyContactPhone = emergencyContactPhone.trim() || null
+        userData.medicalHistory = medicalHistory.trim() || null
+        userData.allergies = allergies.trim() || null
+        userData.currentMedications = currentMedications.trim() || null
       } else if (role === 'field_doctor') {
-        userData.specialization = specialization
-        userData.licenseNumber = licenseNumber
-        userData.yearsOfExperience = yearsOfExperience ? parseInt(yearsOfExperience) : 0
+        userData.specialization = specialization.trim()
+        userData.licenseNumber = licenseNumber.trim()
+        userData.yearsOfExperience = yearsOfExperience.trim() || null
+      } else if (role === 'admin') {
+        userData.permissions = [] // Default empty permissions
       }
 
-      const { error } = await signUp(email, password, userData)
+      console.log('Signup attempt:', { email: email.trim(), role, userData })
+
+      const { error } = await signUp(email.trim().toLowerCase(), password, userData)
 
       if (error) {
-        Alert.alert('Sign Up Failed', error.message)
+        console.error('Signup error:', error)
+        
+        // Provide more specific error messages
+        let errorMessage = 'Account creation failed'
+        
+        if (error.message?.includes('email')) {
+          errorMessage = 'Email is already registered or invalid'
+        } else if (error.message?.includes('password')) {
+          errorMessage = 'Password requirements not met'
+        } else if (error.message?.includes('duplicate')) {
+          errorMessage = 'An account with this information already exists'
+        } else if (error.message) {
+          errorMessage = error.message
+        }
+        
+        Alert.alert('Sign Up Failed', errorMessage)
       } else {
-        Alert.alert('Success', 'Account created successfully! Please sign in.')
-        router.push('/auth/login')
+        Alert.alert(
+          'Success', 
+          'Account created successfully! Please check your email for verification, then sign in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/auth/login')
+            }
+          ]
+        )
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred')
+      console.error('Unexpected signup error:', error)
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -151,6 +203,7 @@ const SignUpScreen: React.FC = () => {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="account" />}
+              autoCapitalize="words"
             />
 
             <TextInput
@@ -212,6 +265,7 @@ const SignUpScreen: React.FC = () => {
                   keyboardType="numeric"
                   style={styles.input}
                   left={<TextInput.Icon icon="calendar" />}
+                  placeholder="Enter your age"
                 />
 
                 <View style={styles.genderContainer}>
@@ -230,6 +284,7 @@ const SignUpScreen: React.FC = () => {
                   onChangeText={setAddress}
                   mode="outlined"
                   multiline
+                  numberOfLines={2}
                   style={styles.input}
                   left={<TextInput.Icon icon="home" />}
                 />
@@ -241,6 +296,7 @@ const SignUpScreen: React.FC = () => {
                   mode="outlined"
                   style={styles.input}
                   left={<TextInput.Icon icon="account-heart" />}
+                  autoCapitalize="words"
                 />
 
                 <TextInput
@@ -259,8 +315,10 @@ const SignUpScreen: React.FC = () => {
                   onChangeText={setMedicalHistory}
                   mode="outlined"
                   multiline
+                  numberOfLines={3}
                   style={styles.input}
                   left={<TextInput.Icon icon="file-document" />}
+                  placeholder="Any past medical conditions, surgeries, etc."
                 />
 
                 <TextInput
@@ -269,8 +327,10 @@ const SignUpScreen: React.FC = () => {
                   onChangeText={setAllergies}
                   mode="outlined"
                   multiline
+                  numberOfLines={2}
                   style={styles.input}
                   left={<TextInput.Icon icon="alert-circle" />}
+                  placeholder="Food, drug, or environmental allergies"
                 />
 
                 <TextInput
@@ -279,8 +339,10 @@ const SignUpScreen: React.FC = () => {
                   onChangeText={setCurrentMedications}
                   mode="outlined"
                   multiline
+                  numberOfLines={2}
                   style={styles.input}
                   left={<TextInput.Icon icon="pill" />}
+                  placeholder="List any medications you're currently taking"
                 />
               </>
             )}
@@ -295,6 +357,8 @@ const SignUpScreen: React.FC = () => {
                   mode="outlined"
                   style={styles.input}
                   left={<TextInput.Icon icon="medical-bag" />}
+                  placeholder="e.g., General Practice, Cardiology, etc."
+                  autoCapitalize="words"
                 />
 
                 <TextInput
@@ -304,6 +368,7 @@ const SignUpScreen: React.FC = () => {
                   mode="outlined"
                   style={styles.input}
                   left={<TextInput.Icon icon="card-account-details" />}
+                  placeholder="Your medical license number"
                 />
 
                 <TextInput
@@ -314,6 +379,7 @@ const SignUpScreen: React.FC = () => {
                   keyboardType="numeric"
                   style={styles.input}
                   left={<TextInput.Icon icon="school" />}
+                  placeholder="Years of practice"
                 />
               </>
             )}
@@ -326,13 +392,14 @@ const SignUpScreen: React.FC = () => {
               style={styles.signUpButton}
               contentStyle={styles.buttonContent}
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
 
             <Button
               mode="text"
               onPress={() => router.push('/auth/login')}
               style={styles.loginButton}
+              disabled={loading}
             >
               Already have an account? Sign In
             </Button>
@@ -341,6 +408,7 @@ const SignUpScreen: React.FC = () => {
               mode="text"
               onPress={() => router.push('/auth/role-selection')}
               style={styles.backButton}
+              disabled={loading}
             >
               Back to Role Selection
             </Button>
@@ -395,6 +463,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginBottom: 8,
+    fontWeight: '500',
   },
   genderButtons: {
     marginBottom: 8,
@@ -415,4 +484,3 @@ const styles = StyleSheet.create({
 })
 
 export default SignUpScreen
-

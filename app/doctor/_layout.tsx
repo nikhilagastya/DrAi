@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Tabs, useRouter } from 'expo-router'
+import { Tabs, router } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useAuth } from '../../contexts/AuthContext'
 import Loader from '~/components/Loader'
@@ -7,18 +7,17 @@ import Loader from '~/components/Loader'
 
 export default function DoctorLayout() {
   const { user, userRole, loading } = useAuth()
-  const router = useRouter()
+ 
 
   useEffect(() => {
     if (!loading && (!user || !userRole || userRole.role !== 'field_doctor')) {
       // User is not authenticated or not a doctor, redirect to auth
       router.replace('/auth')
+    
     }
   }, [user, userRole, loading])
 
-  if (loading) {
-    return <Loader />
-  }
+  
 
   if (!user || !userRole || userRole.role !== 'field_doctor') {
     return null // Will redirect in useEffect

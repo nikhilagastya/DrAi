@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { Provider as PaperProvider } from 'react-native-paper'
 import { AuthProvider, useAuth } from '../contexts/AuthContext'
 import Loader from '~/components/Loader'
-
 
 // Custom theme for React Native Paper
 const theme = {
@@ -20,38 +19,88 @@ const theme = {
 }
 
 function RootLayoutNav() {
-  const { user, userRole, loading } = useAuth()
+  const { user, userRole, loading: authLoading } = useAuth()
   const segments = useSegments()
   const router = useRouter()
+  const [isNavigating, setIsNavigating] = useState(false)
 
   useEffect(() => {
-    if (loading) return
+    // Don't navigate while auth is still loading
+    if (authLoading) {
+      console.log('Auth is loading, waiting...')
+      return
+    }
 
     const inAuthGroup = segments[0] === 'auth'
+    const inPatientGroup = segments[0] === 'patient'
+    const inDoctorGroup = segments[0] === 'doctor'
+    const inAdminGroup = segments[0] === 'admin'
+    
+    console.log('Navigation check:', { 
+      user: !!user, 
+      userRole: userRole?.role, 
+      segments,
+      inAuthGroup,
+      currentPath: segments.join('/') 
+    })
 
-    if (!user && !inAuthGroup) {
-      // User is not authenticated and not in auth group, redirect to auth
-      router.replace('/auth')
-    } else if (user && userRole && inAuthGroup) {
-      // User is authenticated and in auth group, redirect to appropriate dashboard
-      switch (userRole.role) {
-        case 'patient':
-          router.replace('/patient')
-          break
-        case 'field_doctor':
-          router.replace('/doctor')
-          break
-        case 'admin':
-          router.replace('/admin')
-          break
-        default:
+    const navigate = async () => {
+      setIsNavigating(true)
+      
+      try {
+        if (!user) {
+          // No user - redirect to auth if not already there
+          if (!inAuthGroup) {
+            console.log('No user, redirecting to auth')
+            router.replace('/auth')
+          }
+        } else if (user && userRole?.role) {
+          // User exists with role - redirect to appropriate dashboard if not already there
+          console.log('User logged in with role:', userRole.role)
+          
+          switch (userRole.role) {
+            case 'patient':
+              if (!inPatientGroup) {
+                console.log('Redirecting to patient dashboard')
+                router.replace('/patient')
+              }
+              break
+            case 'field_doctor':
+              if (!inDoctorGroup) {
+                console.log('Redirecting to doctor dashboard')
+                router.replace('/doctor')
+              }
+              break
+            case 'admin':
+              if (!inAdminGroup) {
+                console.log('Redirecting to admin dashboard')
+                router.replace('/admin')
+              }
+              break
+            default:
+              console.log('Unknown role, redirecting to auth')
+              router.replace('/auth')
+          }
+        } else if (user && !userRole) {
+          // User exists but no role found - redirect to auth
+          console.log('User exists but no role found, redirecting to auth')
           router.replace('/auth')
+        }
+      } catch (error) {
+        console.error('Navigation error:', error)
+      } finally {
+        setIsNavigating(false)
       }
     }
-  }, [user, userRole, loading, segments])
 
-  if (loading) {
-    return <Loader></Loader>
+    // Add a small delay to avoid race conditions, but make it shorter
+    const timer = setTimeout(navigate, 50)
+    return () => clearTimeout(timer)
+  }, [user, userRole, authLoading, segments])
+
+  // Show loader while auth is loading or while navigating
+  if (authLoading || isNavigating) {
+    return <Loader isOpen={true} />
   }
 
   return (
@@ -73,4 +122,3 @@ export default function RootLayout() {
     </PaperProvider>
   )
 }
-

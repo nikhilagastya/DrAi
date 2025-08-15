@@ -15,9 +15,6 @@ export default function PatientLayout() {
     }
   }, [user, userRole, loading])
 
-  if (loading) {
-    return <Loader />
-  }
 
   if (!user || !userRole || userRole.role !== 'patient') {
     return null // Will redirect in useEffect

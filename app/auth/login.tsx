@@ -13,7 +13,6 @@ const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
 
   const { signIn } = useAuth()
- 
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -23,13 +22,20 @@ const LoginScreen: React.FC = () => {
 
     setLoading(true)
     try {
-      const { error } = await signIn(email, password)
-
+      const { data, error } = await signIn(email, password)
+      
       if (error) {
-        Alert.alert('Login Failed', error.message)
+        Alert.alert('Error', error.message || 'Login failed')
+        return
       }
-      // Navigation will be handled by the root layout based on auth state
+
+      if (data?.user) {
+        // Don't manually navigate here - let the root layout handle it
+        // The AuthContext will update the user state and trigger navigation
+        console.log('Login successful, user:', data.user.email)
+      }
     } catch (error) {
+      console.error('Login error:', error)
       Alert.alert('Error', 'An unexpected error occurred')
     } finally {
       setLoading(false)
@@ -172,4 +178,3 @@ const styles = StyleSheet.create({
 })
 
 export default LoginScreen
-

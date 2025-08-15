@@ -57,6 +57,7 @@ const DoctorProfileScreen: React.FC = () => {
   }
 
   const handleSignOut = async () => {
+    
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',

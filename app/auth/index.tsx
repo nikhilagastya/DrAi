@@ -1,16 +1,14 @@
-import { useEffect } from 'react'
-import { router } from 'expo-router'
+import { useEffect } from 'react';
+import { router } from 'expo-router';
 
 export default function AuthIndex() {
-
-
-
-
   useEffect(() => {
-    // Redirect to role selection as the default auth screen
-    router.push('/auth/role-selection')
-  }, [])
+    // Add a short delay to ensure router is initialized
+  
+      router.push('/auth/role-selection'); // replace instead of push
 
-  return null
+   
+  }, []);
+
+  return null;
 }
-

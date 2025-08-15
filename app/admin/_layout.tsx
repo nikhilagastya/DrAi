@@ -15,9 +15,7 @@ export default function AdminLayout() {
     }
   }, [user, userRole, loading])
 
-  if (loading) {
-    <Loader></Loader>
-  }
+ 
 
   if (!user || !userRole || userRole.role !== 'admin') {
     return null // Will redirect in useEffect

@@ -1,30 +1,101 @@
 import { createClient } from '@supabase/supabase-js'
 import * as SecureStore from 'expo-secure-store'
+import { Platform } from 'react-native'
 
 // Supabase configuration
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_URL'
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
 
-// Custom storage implementation using Expo SecureStore
+// Enhanced storage adapter for native platforms
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
-    return SecureStore.getItemAsync(key)
+  getItem: async (key: string) => {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error('SecureStore getItem error:', error);
+      return null;
+    }
   },
-  setItem: (key: string, value: string) => {
-    SecureStore.setItemAsync(key, value)
+  setItem: async (key: string, value: string) => {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.error('SecureStore setItem error:', error);
+    }
   },
-  removeItem: (key: string) => {
-    SecureStore.deleteItemAsync(key)
+  removeItem: async (key: string) => {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      console.error('SecureStore removeItem error:', error);
+    }
   },
 }
 
-// Create Supabase client
+// Enhanced web storage adapter with better error handling
+const createWebStorageAdapter = () => {
+  // Check if we're in a browser environment
+  const isWebBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  
+  if (isWebBrowser) {
+    return {
+      getItem: async (key: string) => {
+        try {
+          return window.localStorage.getItem(key);
+        } catch (error) {
+          console.error('localStorage getItem error:', error);
+          return null;
+        }
+      },
+      setItem: async (key: string, value: string) => {
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (error) {
+          console.error('localStorage setItem error:', error);
+        }
+      },
+      removeItem: async (key: string) => {
+        try {
+          window.localStorage.removeItem(key);
+        } catch (error) {
+          console.error('localStorage removeItem error:', error);
+        }
+      },
+    }
+  }
+
+  // In-memory fallback for server-side or restricted environments
+  const memoryStorage: Record<string, string> = {}
+  console.warn('Using in-memory storage fallback - sessions will not persist across page reloads');
+  
+  return {
+    getItem: async (key: string) => memoryStorage[key] ?? null,
+    setItem: async (key: string, value: string) => {
+      memoryStorage[key] = value
+    },
+    removeItem: async (key: string) => {
+      delete memoryStorage[key]
+    },
+  }
+}
+
+// Dynamically select storage adapter based on platform
+const storageAdapter = Platform.OS === 'web' ? createWebStorageAdapter() : ExpoSecureStoreAdapter
+
+// Create Supabase client with enhanced configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: storageAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web', // Only enable for web
+    flowType: 'pkce', // Use PKCE flow for better security
+    debug: __DEV__, // Enable debug logging in development
+  },
+  global: {
+    headers: {
+      'X-Client-Info': `healthcare-app-${Platform.OS}`,
+    },
   },
 })
 
@@ -97,7 +168,7 @@ export interface Visit {
 export interface ChatMessage {
   id: string
   patient_id: string;
-  session_id:string;
+  session_id: string;
   role: 'user' | 'ai'
   message: string
   context_visits?: string[]
@@ -111,69 +182,97 @@ export interface UserRole {
   created_at: string
 }
 
-// Helper functions
+// Helper functions with enhanced error handling
 export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error) {
+      console.error('Error getting current user:', error)
+      return null
+    }
+    return user
+  } catch (error) {
+    console.error('Unexpected error getting current user:', error)
+    return null
+  }
 }
 
 export const getUserRole = async (userId: string): Promise<UserRole | null> => {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('*')
-    .eq('auth_user_id', userId)
-    .single()
-  
-  if (error) {
-    console.error('Error fetching user role:', error)
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('auth_user_id', userId)
+      .single()
+    
+    if (error) {
+      console.error('Error fetching user role:', error)
+      return null
+    }
+    
+    return data
+  } catch (error) {
+    console.error('Unexpected error fetching user role:', error)
     return null
   }
-  
-  return data
 }
 
 export const getPatientProfile = async (userId: string): Promise<Patient | null> => {
-  const { data, error } = await supabase
-    .from('patients')
-    .select('*')
-    .eq('auth_user_id', userId)
-    .single()
-  
-  if (error) {
-    console.error('Error fetching patient profile:', error)
+  try {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('auth_user_id', userId)
+      .single()
+    
+    if (error) {
+      console.error('Error fetching patient profile:', error)
+      return null
+    }
+    
+    return data
+  } catch (error) {
+    console.error('Unexpected error fetching patient profile:', error)
     return null
   }
-  
-  return data
 }
 
 export const getDoctorProfile = async (userId: string): Promise<FieldDoctor | null> => {
-  const { data, error } = await supabase
-    .from('field_doctors')
-    .select('*')
-    .eq('auth_user_id', userId)
-    .single()
-  
-  if (error) {
-    console.error('Error fetching doctor profile:', error)
+  try {
+    const { data, error } = await supabase
+      .from('field_doctors')
+      .select('*')
+      .eq('auth_user_id', userId)
+      .single()
+    
+    if (error) {
+      console.error('Error fetching doctor profile:', error)
+      return null
+    }
+    
+    return data
+  } catch (error) {
+    console.error('Unexpected error fetching doctor profile:', error)
     return null
   }
-  
-  return data
 }
 
 export const getAdminProfile = async (userId: string): Promise<Admin | null> => {
-  const { data, error } = await supabase
-    .from('admins')
-    .select('*')
-    .eq('auth_user_id', userId)
-    .single()
-  
-  if (error) {
-    console.error('Error fetching admin profile:', error)
+  try {
+    const { data, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('auth_user_id', userId)
+      .single()
+    
+    if (error) {
+      console.error('Error fetching admin profile:', error)
+      return null
+    }
+    
+    return data
+  } catch (error) {
+    console.error('Unexpected error fetching admin profile:', error)
     return null
   }
-  
-  return data
 }
-
