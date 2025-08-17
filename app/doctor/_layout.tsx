@@ -74,10 +74,8 @@ export default function DoctorLayout() {
       <Tabs.Screen
         name="visit-form"
         options={{
-          title: 'New Visit',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="add-circle" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
+          
         }}
       />
       <Tabs.Screen

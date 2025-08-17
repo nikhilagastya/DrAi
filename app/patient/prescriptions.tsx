@@ -432,7 +432,7 @@ const PrescriptionsScreen: React.FC = () => {
                   )}
                   {prescription.file_url && (
                     <View style={styles.attachmentItem}>
-                      <MaterialIcons name="file-document" size={16} color="#2196F3" />
+                      <MaterialIcons name="notes" size={16} color="#2196F3" />
                       <Text style={styles.attachmentText}>Document attached</Text>
                     </View>
                   )}

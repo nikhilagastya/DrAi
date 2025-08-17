@@ -6,7 +6,7 @@ export default function Loader({ isOpen }: { isOpen: boolean }) {
     <Modal visible={isOpen} animationType="fade" transparent={true}>
       <View style={styles.container}>
         <Image
-          source={require(`/Users/nikhilagastya/Desktop/nik/general/healthcare-app-complete/HealthcareApp/assets/favicon.png`)}
+          source={require(`assets/favicon.png`)}
           style={styles.image}
         />
       </View>
