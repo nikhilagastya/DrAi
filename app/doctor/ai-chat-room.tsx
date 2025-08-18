@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native'
-import { TextInput, Button, Card, Text, ActivityIndicator, Chip } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Animated, TouchableOpacity, Dimensions } from 'react-native'
+import { TextInput, Button, Card, Text, ActivityIndicator, Chip, Divider } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
-import { supabase, FieldDoctor } from '../../lib/supabase'
+import { supabase, FieldDoctor, ChatMessage } from '../../lib/supabase'
+import { PanGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler'
 
-interface ChatMessage {
-  id: string
-  message: string
-  role: 'user' | 'assistant'
-  timestamp: string
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window')
+const DRAWER_WIDTH = SCREEN_WIDTH * 0.8
 
 interface VitalData {
   weight?: number
@@ -23,25 +20,156 @@ interface VitalData {
   temperature?: number
   blood_sugar?: number
   oxygen_saturation?: number
+  respiratory_rate?: number
   symptoms?: string
   patient_name?: string
   patient_age?: number
   patient_gender?: string
+  patient_id?: string
 }
 
-const AIChatRoomScreen: React.FC = () => {
+interface SessionInfo {
+  session_id: string
+  created_at: string
+  message_count: number
+  last_message: string
+  last_message_time: string
+  patient_name?: string
+}
+
+interface ChatBubbleProps {
+  message: ChatMessage
+  isUser: boolean
+}
+
+const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isUser }) => {
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  return (
+    <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.aiMessage]}>
+      <Card style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
+        <Card.Content style={styles.messageContent}>
+          <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>
+            {message.message}
+          </Text>
+          <Text style={[styles.messageTime, isUser ? styles.userTime : styles.aiTime]}>
+            {formatTime(message.timestamp)}
+          </Text>
+        </Card.Content>
+      </Card>
+    </View>
+  )
+}
+
+const DoctorAIChatRoomScreen: React.FC = () => {
   const { userProfile } = useAuth()
   const params = useLocalSearchParams<{ vitals?: string }>()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [vitalData, setVitalData] = useState<VitalData | null>(null)
+  const [currentSessionId, setCurrentSessionId] = useState<string>('')
+  const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [drawerVisible, setDrawerVisible] = useState(false)
   const scrollViewRef = useRef<ScrollView>(null)
+  const drawerTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current
 
   const doctor = userProfile as FieldDoctor
 
+  // Generate a unique session ID for doctor-patient consultation
+  const generateSessionId = (patientId?: string): string => {
+    const timestamp = Date.now()
+    const randomPart = Math.random().toString(36).substring(2, 15)
+    const pid = patientId || 'unknown'
+    return `doctor_session_${doctor?.id}_${pid}_${timestamp}_${randomPart}`
+  }
+
+  // Start a new session
+  const startNewSession = () => {
+    const newSessionId = generateSessionId(vitalData?.patient_id)
+    setCurrentSessionId(newSessionId)
+    setMessages([]) // Clear current messages
+    console.log('New doctor session started:', newSessionId)
+    return newSessionId
+  }
+
+  // Load all sessions for the doctor
+  // const loadSessions = async () => {
+  //   if (!doctor) return
+
+  //   setSessionsLoading(true)
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('chat_messages')
+  //       .select(`
+  //         session_id, 
+  //         timestamp, 
+  //         message, 
+  //         role,
+  //         patient_id,
+  //         patients!inner(name)
+  //       `)
+  //       .eq('patient_id', vitalData?.patient_id)
+  //       .order('timestamp', { ascending: false })
+
+  //     if (error) {
+  //       console.error('Error loading doctor sessions:', error)
+  //       return
+  //     }
+
+  //     // Group messages by session_id and create session info
+  //     const sessionMap = new Map<string, SessionInfo>()
+
+  //     data?.forEach((message: any) => {
+  //       if (!message.session_id) return
+
+  //       if (!sessionMap.has(message.session_id)) {
+  //         sessionMap.set(message.session_id, {
+  //           session_id: message.session_id,
+  //           created_at: message.timestamp,
+  //           message_count: 0,
+  //           last_message: message.message,
+  //           last_message_time: message.timestamp,
+  //           patient_name: message.patients?.name || 'Unknown Patient',
+  //         })
+  //       }
+
+  //       const session = sessionMap.get(message.session_id)!
+  //       session.message_count++
+
+  //       // Update last message if this message is more recent
+  //       if (new Date(message.timestamp) > new Date(session.last_message_time)) {
+  //         session.last_message = message.message
+  //         session.last_message_time = message.timestamp
+  //       }
+
+  //       // Update created_at if this message is older (to get the actual session start)
+  //       if (new Date(message.timestamp) < new Date(session.created_at)) {
+  //         session.created_at = message.timestamp
+  //       }
+  //     })
+
+  //     const sessionsArray = Array.from(sessionMap.values())
+  //       .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime())
+
+  //     setSessions(sessionsArray)
+  //   } catch (error) {
+  //     console.error('Error loading doctor sessions:', error)
+  //   } finally {
+  //     setSessionsLoading(false)
+  //   }
+  // }
+
   useEffect(() => {
     initializeChat()
+    
   }, [])
 
   useEffect(() => {
@@ -50,34 +178,138 @@ const AIChatRoomScreen: React.FC = () => {
     }
   }, [messages])
 
+  useEffect(() => {
+    // Load chat history when session changes
+    if (currentSessionId) {
+      loadChatHistory()
+    }
+  }, [currentSessionId])
+
   const initializeChat = async () => {
     try {
       // Parse vital data from params if provided
       let vitals: VitalData | null = null
-      console.log(params.vitals)
       if (params.vitals) {
         vitals = JSON.parse(decodeURIComponent(params.vitals))
         setVitalData(vitals)
       }
 
-      // Create initial context message with vital data
+      // Generate session ID when component mounts
+      const sessionId = generateSessionId(vitals?.patient_id)
+      setCurrentSessionId(sessionId)
+      console.log('Initial doctor session ID:', sessionId)
+
+      // If we have vital data, send context to AI automatically
+      if (vitals) {
+        await sendContextToAI(vitals, sessionId)
+      } else {
+        // No vitals, show basic welcome message
+        const welcomeMessage: ChatMessage = {
+          id: 'welcome',
+          patient_id: '',
+          session_id: sessionId,
+          role: 'ai',
+          message: `Hello Dr. ${doctor?.name}! I'm your AI diagnostic assistant. Please provide patient information and vital signs for diagnostic assistance.`,
+          timestamp: new Date().toISOString(),
+        }
+        setMessages([welcomeMessage])
+      }
+    } catch (error) {
+      console.error('Error initializing doctor chat:', error)
+      Alert.alert('Error', 'Failed to initialize AI chat room')
+    } finally {
+      setInitialLoading(false)
+    }
+  }
+
+  const sendContextToAI = async (vitals: VitalData, sessionId: string) => {
+    try {
+      // Create context message
       const contextMessage = createContextMessage(vitals)
-      
-      const welcomeMessage: ChatMessage = {
-        id: 'welcome',
-        message: `Hello Dr. ${doctor?.name}! I'm your AI diagnostic assistant. I've received the patient's vital signs and symptoms. Let me analyze this data and provide diagnostic insights.
+      const initialMessage = `Hello! I'm providing you with patient information for diagnostic consultation:
 
 ${contextMessage}
 
-What specific aspects would you like me to focus on for this diagnosis?`,
-        role: 'assistant',
+Please analyze this data and provide initial diagnostic insights, potential concerns, and recommendations for next steps.`
+
+      // Add context message to local state
+      const contextChatMessage: ChatMessage = {
+        id: `context-${Date.now()}`,
+        patient_id: vitals?.patient_id || '',
+        session_id: sessionId,
+        role: 'user',
+        message: initialMessage,
         timestamp: new Date().toISOString(),
       }
+      setMessages([contextChatMessage])
 
-      setMessages([welcomeMessage])
+      // Send to AI
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/gemini-chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          doctorId: doctor?.id,
+          patientId: vitals?.patient_id || null,
+          message: initialMessage,
+          conversationHistory: [],
+          sessionId: sessionId,
+          vitalData: vitals,
+          doctorProfile: {
+            name: doctor?.name,
+            specialization: doctor?.specialization,
+            yearsOfExperience: doctor?.years_of_experience,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response')
+      }
+
+      const data = await response.json()
+      console.log('AI context response:', data)
+      
+      if (data.success) {
+        // Reload chat history to get AI response
+        await loadChatHistory()
+      } else {
+        throw new Error(data.error || 'Failed to get AI response')
+      }
     } catch (error) {
-      console.error('Error initializing chat:', error)
-      Alert.alert('Error', 'Failed to initialize AI chat room')
+      console.error('Error sending context to AI:', error)
+      // Fallback to welcome message if API fails
+      const welcomeMessage: ChatMessage = {
+        id: 'welcome-fallback',
+        patient_id: vitals?.patient_id || '',
+        session_id: sessionId,
+        role: 'ai',
+        message: `Hello Dr. ${doctor?.name}! I've received the patient data. How can I assist with the diagnosis?`,
+        timestamp: new Date().toISOString(),
+      }
+      setMessages([welcomeMessage])
+    }
+  }
+
+  const loadChatHistory = async () => {
+    if (!doctor || !currentSessionId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', currentSessionId)
+        .order('timestamp', { ascending: true })
+
+      if (error) {
+        console.error('Error loading doctor chat history:', error)
+      } else {
+        setMessages(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading doctor chat history:', error)
     }
   }
 
@@ -116,6 +348,9 @@ What specific aspects would you like me to focus on for this diagnosis?`,
       const o2Status = vitals.oxygen_saturation < 95 ? " ⚠️ LOW" : ""
       context += `• Oxygen Saturation: ${vitals.oxygen_saturation}%${o2Status}\n`
     }
+    if (vitals.respiratory_rate) {
+      context += `• Respiratory Rate: ${vitals.respiratory_rate} breaths/min\n`
+    }
     
     if (vitals.symptoms) {
       context += `\n**Reported Symptoms:**\n${vitals.symptoms}\n`
@@ -131,117 +366,165 @@ What specific aspects would you like me to focus on for this diagnosis?`,
   }
 
   const sendMessage = async () => {
-    if (!inputText.trim() || loading) return
+    if (!inputText.trim() || !doctor || loading) return
 
-    const userMessage: ChatMessage = {
-      id: `user_${Date.now()}`,
-      message: inputText.trim(),
-      role: 'user',
-      timestamp: new Date().toISOString(),
-    }
-
-    setMessages(prev => [...prev, userMessage])
+    const userMessage = inputText.trim()
     setInputText('')
     setLoading(true)
 
     try {
-      // Generate AI response based on context and user input
-      const aiResponse = await generateDiagnosticResponse(userMessage.message, vitalData)
-
-      const aiMessage: ChatMessage = {
-        id: `ai_${Date.now()}`,
-        message: aiResponse,
-        role: 'assistant',
+      // Add user message to local state immediately
+      const tempUserMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        patient_id: vitalData?.patient_id || '',
+        session_id: currentSessionId,
+        role: 'user',
+        message: userMessage,
         timestamp: new Date().toISOString(),
       }
+      setMessages(prev => [...prev, tempUserMessage])
 
-      setMessages(prev => [...prev, aiMessage])
+      // Get conversation history for context
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        message: msg.message,
+        timestamp: msg.timestamp,
+      }))
 
+      // Call AI chat function with doctor and patient context
+      console.log('Sending doctor message with session ID:', currentSessionId)
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/gemini-chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          doctorId: doctor.id,
+          patientId: vitalData?.patient_id || null,
+          message: userMessage,
+          conversationHistory,
+          sessionId: currentSessionId,
+          vitalData: vitalData,
+          doctorProfile: {
+            name: doctor.name,
+            specialization: doctor.specialization,
+            yearsOfExperience: doctor.years_of_experience,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response')
+      }
+
+      const data = await response.json()
+      console.log('Doctor AI response:', data)
+      
+      if (data.success) {
+        // Reload chat history and sessions
+        await loadChatHistory()
+       
+      } else {
+        throw new Error(data.error || 'Failed to get AI response')
+      }
     } catch (error) {
-      console.error('Error sending message:', error)
-      Alert.alert('Error', 'Failed to get AI response. Please try again.')
+      console.error('Error sending doctor message:', error)
+      Alert.alert('Error', 'Failed to send message. Please try again.')
+
+      // Remove the temporary user message on error
+      setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')))
     } finally {
       setLoading(false)
     }
   }
 
-  const generateDiagnosticResponse = async (userMessage: string, vitals: VitalData | null): Promise<string> => {
-    // This is a mock AI response. In a real implementation, you would integrate with an AI service like OpenAI
-    const lowerMessage = userMessage.toLowerCase()
-    
-    if (lowerMessage.includes('diagnosis') || lowerMessage.includes('what') || lowerMessage.includes('condition')) {
-      let response = "Based on the vital signs and symptoms provided:\n\n"
-      
-      if (vitals) {
-        const findings = []
-        
-        if (vitals.systolic_bp && vitals.systolic_bp > 140) {
-          findings.push("• Elevated blood pressure suggests hypertension")
-        }
-        
-        if (vitals.temperature && vitals.temperature > 37.5) {
-          findings.push("• Fever indicates possible infection or inflammatory process")
-        }
-        
-        if (vitals.heart_rate && vitals.heart_rate > 100) {
-          findings.push("• Tachycardia may be related to fever, pain, or cardiovascular issues")
-        }
-        
-        if (vitals.blood_sugar && vitals.blood_sugar > 180) {
-          findings.push("• Hyperglycemia suggests diabetes management issues")
-        }
-        
-        if (findings.length > 0) {
-          response += "**Key Findings:**\n" + findings.join("\n") + "\n\n"
-        }
-        
-        response += "**Differential Diagnosis:**\n"
-        
-        if (vitals.temperature && vitals.temperature > 37.5) {
-          response += "• Viral or bacterial infection\n• Inflammatory condition\n"
-        }
-        
-        if (vitals.systolic_bp && vitals.systolic_bp > 140) {
-          response += "• Primary hypertension\n• Secondary hypertension\n"
-        }
-        
-        response += "\n**Recommendations:**\n"
-        response += "• Complete physical examination\n"
-        response += "• Consider additional diagnostic tests based on symptoms\n"
-        response += "• Monitor vital signs closely\n"
-        response += "• Patient education on condition management\n"
-      } else {
-        response += "Please provide patient vital signs and symptoms for accurate diagnostic assessment."
-      }
-      
-      return response
+  const clearChat = () => {
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to clear all chat messages? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('chat_messages')
+                .delete()
+                .eq('session_id', currentSessionId)
+
+              if (error) {
+                console.error('Error clearing doctor chat:', error)
+                Alert.alert('Error', 'Failed to clear chat history')
+              } else {
+                setMessages([])
+                setSessions([])
+                startNewSession()
+              }
+            } catch (error) {
+              console.error('Error clearing doctor chat:', error)
+              Alert.alert('Error', 'Failed to clear chat history')
+            }
+          },
+        },
+      ]
+    )
+  }
+
+  const handleNewSession = () => {
+    startNewSession()
+    setDrawerVisible(false)
+    Alert.alert('New Session', 'Started a new diagnostic consultation session!')
+  }
+
+  const switchToSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId)
+    setDrawerVisible(false)
+    console.log('Switched to doctor session:', sessionId)
+  }
+
+  const toggleDrawer = () => {
+    setDrawerVisible(!drawerVisible)
+    Animated.timing(drawerTranslateX, {
+      toValue: drawerVisible ? -DRAWER_WIDTH : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const handlePanGesture = (event: any) => {
+    const { translationX } = event.nativeEvent
+
+    if (translationX > 50 && !drawerVisible) {
+      // Swipe right to open drawer
+      setDrawerVisible(true)
+      Animated.timing(drawerTranslateX, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start()
+    } else if (translationX < -50 && drawerVisible) {
+      // Swipe left to close drawer
+      setDrawerVisible(false)
+      Animated.timing(drawerTranslateX, {
+        toValue: -DRAWER_WIDTH,
+        duration: 300,
+        useNativeDriver: true,
+      }).start()
     }
-    
-    if (lowerMessage.includes('treatment') || lowerMessage.includes('medication') || lowerMessage.includes('therapy')) {
-      return "**Treatment Considerations:**\n\n• Always follow evidence-based treatment guidelines\n• Consider patient's medical history and allergies\n• Start with conservative management when appropriate\n• Monitor for treatment response and side effects\n• Provide clear patient education\n• Schedule appropriate follow-up\n\n**Note:** Treatment decisions should always be based on complete clinical assessment and your professional judgment."
-    }
-    
-    if (lowerMessage.includes('test') || lowerMessage.includes('lab') || lowerMessage.includes('investigation')) {
-      let response = "**Suggested Diagnostic Tests:**\n\n"
-      
-      if (vitals?.temperature && vitals.temperature > 37.5) {
-        response += "• Complete Blood Count (CBC)\n• Blood cultures\n• Inflammatory markers (ESR, CRP)\n"
-      }
-      
-      if (vitals?.systolic_bp && vitals.systolic_bp > 140) {
-        response += "• Basic metabolic panel\n• Lipid profile\n• Urinalysis\n• ECG\n"
-      }
-      
-      if (vitals?.blood_sugar && vitals.blood_sugar > 180) {
-        response += "• HbA1c\n• Fasting glucose\n• Kidney function tests\n"
-      }
-      
-      response += "\n**Additional considerations based on symptoms and clinical presentation.**"
-      
-      return response
-    }
-    
-    return "I'm here to assist with diagnostic insights based on the patient's vital signs and symptoms. You can ask me about:\n\n• Possible diagnoses\n• Treatment recommendations\n• Diagnostic tests to consider\n• Risk factors and complications\n• Patient education points\n\nWhat specific aspect would you like to explore?"
+  }
+
+  const formatSessionDate = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (diffInDays === 0) return 'Today'
+    if (diffInDays === 1) return 'Yesterday'
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   const renderVitalChips = () => {
@@ -293,7 +576,9 @@ What specific aspects would you like me to focus on for this diagnosis?`,
 
     return chips.length > 0 ? (
       <View style={styles.vitalChipsContainer}>
-        <Text style={styles.vitalChipsTitle}>Patient Vitals:</Text>
+        <Text style={styles.vitalChipsTitle}>
+          Patient: {vitalData.patient_name || 'Unknown'} | Vitals:
+        </Text>
         <View style={styles.vitalChips}>
           {chips}
         </View>
@@ -301,82 +586,218 @@ What specific aspects would you like me to focus on for this diagnosis?`,
     ) : null
   }
 
+  const suggestedQuestions = [
+    "What's the most likely diagnosis based on these vitals?",
+    "What additional tests should I consider?",
+    "Are there any red flags I should be concerned about?",
+    "What treatment options would you recommend?",
+    "What should I monitor in follow-up visits?",
+  ]
+
+  const handleSuggestedQuestion = (question: string) => {
+    setInputText(question)
+  }
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Initializing diagnostic session...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        {renderVitalChips()}
-        
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-        >
-          {messages.map((message) => (
-            <View
-              key={message.id}
+      <GestureHandlerRootView>
+        <PanGestureHandler onGestureEvent={handlePanGesture}>
+          <Animated.View style={{ flex: 1 }}>
+            <KeyboardAvoidingView 
+              style={styles.keyboardAvoidingView} 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.headerInfo}>
+                  <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+                    <MaterialIcons name="menu" size={24} color="#4CAF50" />
+                  </TouchableOpacity>
+                  <MaterialIcons name="psychology" size={24} color="#4CAF50" />
+                  <Text style={styles.headerText}>AI Diagnostic Assistant</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  <Button mode="text" compact onPress={handleNewSession} style={styles.headerButton}>
+                    New Session
+                  </Button>
+                  <Button mode="text" compact onPress={clearChat}>
+                    Clear
+                  </Button>
+                </View>
+              </View>
+
+              {/* Vital Signs Chips */}
+              {renderVitalChips()}
+              
+              {/* Session Info */}
+              <View style={styles.sessionInfo}>
+                <Text style={styles.sessionText}>
+                  Session: {currentSessionId.split('_').pop()?.substring(0, 8)}...
+                </Text>
+              </View>
+
+              {/* Messages */}
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={styles.messagesContent}
+              >
+                {messages.length === 0 ? (
+                  <View style={styles.welcomeContainer}>
+                    <MaterialIcons name="psychology" size={64} color="#ccc" />
+                    <Text style={styles.welcomeText}>AI Diagnostic Assistant Ready</Text>
+                    <Text style={styles.welcomeSubText}>
+                      I can help you analyze patient data, suggest diagnoses, recommend tests, and provide treatment insights.
+                    </Text>
+
+                    <View style={styles.suggestedContainer}>
+                      <Text style={styles.suggestedText}>Quick questions:</Text>
+                      {suggestedQuestions.map((question, index) => (
+                        <Chip
+                          key={index}
+                          mode="outlined"
+                          onPress={() => handleSuggestedQuestion(question)}
+                          style={styles.suggestedChip}
+                        >
+                          {question}
+                        </Chip>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  messages.map((message) => (
+                    <ChatBubble
+                      key={message.id}
+                      message={message}
+                      isUser={message.role === 'user'}
+                    />
+                  ))
+                )}
+
+                {loading && (
+                  <View style={styles.loadingMessage}>
+                    <Card style={styles.typingBubble}>
+                      <Card.Content style={styles.typingContent}>
+                        <ActivityIndicator size="small" color="#4CAF50" />
+                        <Text style={styles.typingText}>AI is analyzing patient data...</Text>
+                      </Card.Content>
+                    </Card>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Input Area */}
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.textInput}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Ask about diagnosis, treatment, or tests..."
+                  multiline
+                  maxLength={500}
+                  mode="outlined"
+                  disabled={loading}
+                  right={
+                    <TextInput.Icon
+                      icon="send"
+                      onPress={sendMessage}
+                      disabled={!inputText.trim() || loading}
+                    />
+                  }
+                />
+              </View>
+            </KeyboardAvoidingView>
+
+            {/* Session Drawer */}
+            <Animated.View
               style={[
-                styles.messageContainer,
-                message.role === 'user' ? styles.userMessage : styles.aiMessage
+                styles.drawer,
+                {
+                  transform: [{ translateX: drawerTranslateX }],
+                }
               ]}
             >
-              <Card style={[
-                styles.messageBubble,
-                message.role === 'user' ? styles.userBubble : styles.aiBubble
-              ]}>
-                <Card.Content style={styles.messageContent}>
-                  <Text style={[
-                    styles.messageText,
-                    message.role === 'user' ? styles.userText : styles.aiText
-                  ]}>
-                    {message.message}
-                  </Text>
-                  <Text style={[
-                    styles.messageTime,
-                    message.role === 'user' ? styles.userTime : styles.aiTime
-                  ]}>
-                    {new Date(message.timestamp).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </Card.Content>
-              </Card>
-            </View>
-          ))}
-          
-          {loading && (
-            <View style={styles.loadingMessage}>
-              <ActivityIndicator size="small" color="#4CAF50" />
-              <Text style={styles.typingText}>AI is analyzing...</Text>
-            </View>
-          )}
-        </ScrollView>
+              <View style={styles.drawerHeader}>
+                <Text style={styles.drawerText}>Consultation Sessions</Text>
+                <TouchableOpacity onPress={toggleDrawer}>
+                  <MaterialIcons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Ask about diagnosis, treatment, or tests..."
-            multiline
-            maxLength={500}
-            mode="outlined"
-            disabled={loading}
-          />
-          <Button
-            mode="contained"
-            onPress={sendMessage}
-            disabled={!inputText.trim() || loading}
-            style={styles.sendButton}
-            contentStyle={styles.sendButtonContent}
-          >
-            <MaterialIcons name="send" size={20} color="white" />
-          </Button>
-        </View>
-      </KeyboardAvoidingView>
+              <Divider />
+
+              <TouchableOpacity style={styles.newSessionButton} onPress={handleNewSession}>
+                <MaterialIcons name="add" size={20} color="#4CAF50" />
+                <Text style={styles.newSessionText}>Start New Consultation</Text>
+              </TouchableOpacity>
+
+              <Divider />
+
+              <ScrollView style={styles.sessionsList}>
+                {sessionsLoading ? (
+                  <View style={styles.sessionsLoading}>
+                    <ActivityIndicator size="small" color="#4CAF50" />
+                    <Text style={styles.loadingText}>Loading sessions...</Text>
+                  </View>
+                ) : sessions.length === 0 ? (
+                  <View style={styles.noSessions}>
+                    <Text style={styles.noSessionsText}>No previous consultations</Text>
+                  </View>
+                ) : (
+                  sessions.map((session) => (
+                    <TouchableOpacity
+                      key={session.session_id}
+                      style={[
+                        styles.sessionItem,
+                        currentSessionId === session.session_id && styles.activeSession
+                      ]}
+                      onPress={() => switchToSession(session.session_id)}
+                    >
+                      <View style={styles.sessionItemContent}>
+                        <Text style={styles.sessionDate}>
+                          {formatSessionDate(session.created_at)}
+                        </Text>
+                        <Text style={styles.sessionPatient}>
+                          Patient: {session.patient_name}
+                        </Text>
+                        <Text style={styles.sessionPreview} numberOfLines={2}>
+                          {session.last_message}
+                        </Text>
+                        <Text style={styles.sessionMeta}>
+                          {session.message_count} messages
+                        </Text>
+                      </View>
+                      {currentSessionId === session.session_id && (
+                        <MaterialIcons name="check-circle" size={20} color="#4CAF50" />
+                      )}
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </Animated.View>
+
+            {/* Drawer Overlay */}
+            {drawerVisible && (
+              <TouchableOpacity
+                style={styles.overlay}
+                onPress={toggleDrawer}
+                activeOpacity={1}
+              />
+            )}
+          </Animated.View>
+        </PanGestureHandler>
+      </GestureHandlerRootView>
     </SafeAreaView>
   )
 }
@@ -385,6 +806,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#666',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuButton: {
+    marginRight: 12,
+    padding: 4,
+  },
+  headerText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  headerActions: {
+    flexDirection: 'row',
+  },
+  headerButton: {
+    marginRight: 8,
   },
   vitalChipsContainer: {
     backgroundColor: 'white',
@@ -404,10 +865,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   vitalChip: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#E8F5E8',
   },
   alertChip: {
     backgroundColor: '#FFEBEE',
+  },
+  sessionInfo: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  sessionText: {
+    fontSize: 12,
+    color: '#666',
   },
   messagesContainer: {
     flex: 1,
@@ -415,8 +885,37 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
   },
-  messageContainer: {
+  welcomeContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+  },
+  welcomeSubText: {
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  suggestedContainer: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  suggestedText: {
+    fontWeight: 'bold',
     marginBottom: 12,
+  },
+  suggestedChip: {
+    marginVertical: 4,
+    marginHorizontal: 8,
+  },
+  messageContainer: {
+    marginVertical: 4,
   },
   userMessage: {
     alignItems: 'flex-end',
@@ -458,35 +957,124 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   loadingMessage: {
+    alignItems: 'flex-start',
+    marginVertical: 4,
+  },
+  typingBubble: {
+    backgroundColor: '#fff',
+    elevation: 1,
+  },
+  typingContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   typingText: {
     marginLeft: 8,
     color: '#666',
-    fontStyle: 'italic',
   },
   inputContainer: {
-    flexDirection: 'row',
     padding: 16,
     backgroundColor: 'white',
-    alignItems: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
   },
   textInput: {
-    flex: 1,
-    marginRight: 12,
     maxHeight: 100,
   },
-  sendButton: {
-    borderRadius: 25,
-    backgroundColor: '#4CAF50',
+  drawer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: '#fff',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  sendButtonContent: {
-    width: 50,
-    height: 50,
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8f8f8',
+  },
+  drawerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  newSessionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#E8F5E8',
+  },
+  newSessionText: {
+    marginLeft: 8,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+  },
+  sessionsList: {
+    flex: 1,
+  },
+  sessionsLoading: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noSessions: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noSessionsText: {
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  sessionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  activeSession: {
+    backgroundColor: '#E8F5E8',
+  },
+  sessionItemContent: {
+    flex: 1,
+  },
+  sessionDate: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sessionPatient: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginTop: 2,
+  },
+  sessionPreview: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  sessionMeta: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
 })
 
-export default AIChatRoomScreen
-
+export default DoctorAIChatRoomScreen

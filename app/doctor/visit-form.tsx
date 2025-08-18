@@ -18,18 +18,30 @@ const VisitFormScreen: React.FC = () => {
   const doctor = userProfile as FieldDoctor
 
   // Vital signs
-  const [weight, setWeight] = useState('')
-  const [height, setHeight] = useState('')
-  const [systolicBp, setSystolicBp] = useState('')
-  const [diastolicBp, setDiastolicBp] = useState('')
-  const [heartRate, setHeartRate] = useState('')
-  const [temperature, setTemperature] = useState('')
-  const [bloodSugar, setBloodSugar] = useState('')
-  const [oxygenSaturation, setOxygenSaturation] = useState('')
-  const [respiratoryRate, setRespiratoryRate] = useState('')
+  // const [weight, setWeight] = useState('')
+  // const [height, setHeight] = useState('')
+  // const [systolicBp, setSystolicBp] = useState('')
+  // const [diastolicBp, setDiastolicBp] = useState('')
+  // const [heartRate, setHeartRate] = useState('')
+  // const [temperature, setTemperature] = useState('')
+  // const [bloodSugar, setBloodSugar] = useState('')
+  // const [oxygenSaturation, setOxygenSaturation] = useState('')
+  // const [respiratoryRate, setRespiratoryRate] = useState('')
+
+  // // Visit information
+  // const [symptoms, setSymptoms] = useState('')
+  const [weight, setWeight] = useState('85')
+  const [height, setHeight] = useState('190')
+  const [systolicBp, setSystolicBp] = useState('138')
+  const [diastolicBp, setDiastolicBp] = useState('40')
+  const [heartRate, setHeartRate] = useState('68')
+  const [temperature, setTemperature] = useState('38')
+  const [bloodSugar, setBloodSugar] = useState('23')
+  const [oxygenSaturation, setOxygenSaturation] = useState('92')
+  const [respiratoryRate, setRespiratoryRate] = useState('39')
 
   // Visit information
-  const [symptoms, setSymptoms] = useState('')
+  const [symptoms, setSymptoms] = useState('Fever and headache')
   const [diagnosis, setDiagnosis] = useState('')
   const [treatmentNotes, setTreatmentNotes] = useState('')
   const [prescribedMedications, setPrescribedMedications] = useState('')
@@ -95,6 +107,7 @@ const VisitFormScreen: React.FC = () => {
 
     // Prepare vital data for AI chat
     const vitalData = {
+      patient_id: patient?.id || '',
       patient_name: patient?.name,
       patient_age: patient?.age,
       patient_gender: patient?.gender,

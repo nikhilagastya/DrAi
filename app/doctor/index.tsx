@@ -458,7 +458,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statusChip: {
-    height: 24,
+    height: 32,
+    marginVertical: 2,
   },
   normalChip: {
     backgroundColor: '#E8F5E8',
