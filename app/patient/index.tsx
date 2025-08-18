@@ -233,7 +233,7 @@ const PatientHomeScreen: React.FC = () => {
             <Text style={styles.statLabel}>Recent Visits</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.statCard} onPress={() => router.push('/patient/add-vitals')}>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push('/patient/AddVitals')}>
             <View style={styles.statIcon}>
               <MaterialIcons name="notes" size={24} color="#4CAF50" />
             </View>
