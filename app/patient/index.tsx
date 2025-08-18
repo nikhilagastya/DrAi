@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Visit, Patient } from '../../lib/supabase'
 
 const PatientHomeScreen: React.FC = () => {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile ,signOut} = useAuth()
   const [recentVisits, setRecentVisits] = useState<Visit[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -124,7 +124,7 @@ const PatientHomeScreen: React.FC = () => {
           <Card.Content>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Visits</Text>
-              <Button onPress={() => { }} mode="text" compact>View All</Button>
+              <Button onPress={() => {signOut() }} mode="text" compact>View All</Button>
             </View>
 
             {recentVisits.length > 0 ? (

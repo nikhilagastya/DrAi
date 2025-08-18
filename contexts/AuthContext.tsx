@@ -622,41 +622,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name: userData.name, role: userData.role } },
-    });
+    })
 
-    if (error || !data.user) return { error: error || new Error('Signup failed') };
-
-    await supabase.from('user_roles').insert({
-      auth_user_id: data.user.id,
-      role: userData.role,
-    });
-
-    if (userData.role === 'patient') {
-      await supabase.from('patients').insert({
-        auth_user_id: data.user.id,
-        name: userData.name,
-        email,
-        phone: userData.phone || null,
-      });
-    } else if (userData.role === 'field_doctor') {
-      await supabase.from('field_doctors').insert({
-        auth_user_id: data.user.id,
-        name: userData.name,
-        email,
-        phone: userData.phone || null,
-      });
-    } else if (userData.role === 'admin') {
-      await supabase.from('admins').insert({
-        auth_user_id: data.user.id,
-        name: userData.name,
-        email,
-        phone: userData.phone || null,
-      });
+    if (error || !data.user) {
+      return { error }
     }
 
-    return { error: null };
-  };
+    // Create user role
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .insert({
+        auth_user_id: data.user.id,
+        role: userData.role,
+      })
+
+    if (roleError) {
+      return { error: roleError }
+    }
+
+    // Create profile based on role
+    let profileError = null
+    switch (userData.role) {
+      case 'patient':
+        const { error: patientError } = await supabase
+          .from('patients')
+          .insert({
+            auth_user_id: data.user.id,
+            name: userData.name,
+            age: userData.age,
+            gender: userData.gender,
+            phone: userData.phone,
+            email: email,
+            address: userData.address,
+            emergency_contact_name: userData.emergencyContactName,
+            emergency_contact_phone: userData.emergencyContactPhone,
+            medical_history: userData.medicalHistory,
+            allergies: userData.allergies,
+            current_medications: userData.currentMedications,
+          })
+        profileError = patientError
+        break
+
+      case 'field_doctor':
+        const { error: doctorError } = await supabase
+          .from('field_doctors')
+          .insert({
+            auth_user_id: data.user.id,
+            name: userData.name,
+            specialization: userData.specialization,
+            license_number: userData.licenseNumber,
+            phone: userData.phone,
+            email: email,
+            years_of_experience: userData.yearsOfExperience,
+          })
+        profileError = doctorError
+        break
+
+      case 'admin':
+        const { error: adminError } = await supabase
+          .from('admins')
+          .insert({
+            auth_user_id: data.user.id,
+            name: userData.name,
+            phone: userData.phone,
+            email: email,
+            permissions: userData.permissions || [],
+          })
+        profileError = adminError
+        break
+    }
+
+    return { error: profileError }
+  }
 
   const signOut = async () => {
     await supabase.auth.signOut();
