@@ -5,8 +5,12 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
+import CleanTextInput from '~/components/input/cleanTextInput'
 
 const { width } = Dimensions.get('window')
+
+
+
 
 const SignUpScreen: React.FC = () => {
   const { role } = useLocalSearchParams<{ role: string }>()
@@ -167,34 +171,6 @@ const SignUpScreen: React.FC = () => {
       default: return 'Sign Up'
     }
   }
-
-  const CleanTextInput = ({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline, numberOfLines, ...props }: any) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        placeholder={placeholder}
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        mode="outlined"
-        style={[styles.input, multiline && styles.multilineInput]}
-        outlineStyle={styles.inputOutline}
-        contentStyle={styles.inputContent}
-        theme={{
-          colors: {
-            primary: '#4285F4',
-            outline: '#E8E8E8',
-            background: '#FAFAFA',
-            onSurfaceVariant: '#999999',
-          }
-        }}
-        {...props}
-      />
-    </View>
-  )
 
   return (
     <SafeAreaView style={styles.container}>

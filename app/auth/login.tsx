@@ -5,6 +5,9 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
+import CleanTextInput from '~/components/input/cleanTextInput'
+
+
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -44,31 +47,7 @@ const LoginScreen: React.FC = () => {
     router.push('/auth/role-selection')
   }
 
-  const CleanTextInput = ({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, ...props }: any) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        placeholder={placeholder}
-        mode="outlined"
-        style={styles.input}
-        outlineStyle={styles.inputOutline}
-        contentStyle={styles.inputContent}
-        theme={{
-          colors: {
-            primary: '#4285F4',
-            outline: '#E8E8E8',
-            background: '#FAFAFA',
-            onSurfaceVariant: '#999999',
-          }
-        }}
-        {...props}
-      />
-    </View>
-  )
+  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -111,6 +90,7 @@ const LoginScreen: React.FC = () => {
           <CleanTextInput
             label="Password"
             value={password}
+            
             onChangeText={setPassword}
             placeholder="Enter your password"
             secureTextEntry={!showPassword}
