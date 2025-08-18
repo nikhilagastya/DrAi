@@ -1,4 +1,4 @@
-patient: agastyakarthik29@gmail 
+patient: agastyakarthik29@gmail.com
 password: qwerty123
 
 doctor:doc@gmail.com

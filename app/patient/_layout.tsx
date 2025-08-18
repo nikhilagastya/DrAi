@@ -96,9 +96,16 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="edit-visit"
         options={{
-          href: null, // Hide from tab bar
-        }}
+         href: null, // Hide from tab bar
+        } }
       />
+            <Tabs.Screen
+        name="AddVitals"
+        options={{
+         href: null, // Hide from tab bar
+        } }
+      />
+      
     </Tabs>
   )
 }
