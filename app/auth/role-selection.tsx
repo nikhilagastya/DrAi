@@ -1,13 +1,11 @@
 import React from 'react'
-import { View, StyleSheet, ScrollView } from 'react-native'
-import { Card, Text, Button } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { Text, Button } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { router } from 'expo-router'
 
 const RoleSelectionScreen: React.FC = () => {
-  
-
   const handleRoleSelect = (role: string) => {
     router.push(`/auth/signup?role=${role}`)
   }
@@ -16,52 +14,81 @@ const RoleSelectionScreen: React.FC = () => {
     router.push('/auth/login')
   }
 
+  const roles = [
+    {
+      id: 'patient',
+      title: 'Patient',
+      description: 'View your medical history, track visits, and chat with AI assistant',
+      icon: 'person'
+    },
+    {
+      id: 'field_doctor',
+      title: 'Field Doctor',
+      description: 'Record patient visits, enter vital signs, and manage patient care',
+      icon: 'medical-services'
+    },
+    {
+      id: 'admin',
+      title: 'Administrator',
+      description: 'Manage users, oversee system operations, and view analytics',
+      icon: 'admin-panel-settings'
+    }
+  ]
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <MaterialIcons name="local-hospital" size={64} color="#2196F3" />
-          <Text style={styles.titleText}>Healthcare App</Text>
+          <View style={styles.iconContainer}>
+            <MaterialIcons name="local-hospital" size={48} color="#4285F4" />
+          </View>
+          <Text style={styles.titleText}>Welcome to DrAi</Text>
           <Text style={styles.subText}>
             Choose your role to get started
           </Text>
         </View>
 
         <View style={styles.rolesContainer}>
-          <Card style={styles.roleCard} onPress={() => handleRoleSelect('patient')}>
-            <Card.Content style={styles.cardContent}>
-              <MaterialIcons name="person" size={48} color="#2196F3" />
-              <Text style={styles.roleText}>Patient</Text>
-              <Text style={styles.roleDescription}>
-                View your medical history, track visits, and chat with AI assistant
-              </Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.roleCard} onPress={() => handleRoleSelect('field_doctor')}>
-            <Card.Content style={styles.cardContent}>
-              <MaterialIcons name="medical-services" size={48} color="#4CAF50" />
-              <Text style={styles.roleText}>Field Doctor</Text>
-              <Text style={styles.roleDescription}>
-                Record patient visits, enter vital signs, and manage patient care
-              </Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.roleCard} onPress={() => handleRoleSelect('admin')}>
-            <Card.Content style={styles.cardContent}>
-              <MaterialIcons name="admin-panel-settings" size={48} color="#FF9800" />
-              <Text style={styles.roleText}>Administrator</Text>
-              <Text style={styles.roleDescription}>
-                Manage users, oversee system operations, and view analytics
-              </Text>
-            </Card.Content>
-          </Card>
+          {roles.map((role) => (
+            <TouchableOpacity
+              key={role.id}
+              style={styles.roleCard}
+              onPress={() => handleRoleSelect(role.id)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.roleIcon}>
+                <MaterialIcons 
+                  name={role.icon as any} 
+                  size={32} 
+                  color="#4285F4" 
+                />
+              </View>
+              <View style={styles.roleContent}>
+                <Text style={styles.roleTitle}>{role.title}</Text>
+                <Text style={styles.roleDescription}>{role.description}</Text>
+              </View>
+              <MaterialIcons 
+                name="arrow-forward-ios" 
+                size={20} 
+                color="#CCCCCC" 
+              />
+            </TouchableOpacity>
+          ))}
         </View>
+
+        <View style={styles.divider} />
 
         <View style={styles.loginSection}>
           <Text style={styles.loginText}>Already have an account?</Text>
-          <Button mode="outlined" onPress={handleLogin} style={styles.loginButton}>
+          <Button 
+            mode="text" 
+            onPress={handleLogin} 
+            style={styles.loginButton}
+            textColor="#4285F4"
+          >
             Sign In
           </Button>
         </View>
@@ -73,67 +100,91 @@ const RoleSelectionScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 20,
+    marginBottom: 48,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
   titleText: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
   },
   subText: {
     fontSize: 16,
-    color: '#666',
+    color: '#666666',
     textAlign: 'center',
-    marginTop: 8,
+    lineHeight: 24,
   },
   rolesContainer: {
-    flex: 1,
     gap: 16,
+    marginBottom: 32,
   },
   roleCard: {
-    elevation: 4,
-    backgroundColor: '#fff',
-  },
-  cardContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
-  roleText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 12,
-    marginBottom: 8,
+  roleIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  roleContent: {
+    flex: 1,
+  },
+  roleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 4,
   },
   roleDescription: {
-    textAlign: 'center',
-    color: '#666',
+    fontSize: 14,
+    color: '#666666',
     lineHeight: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 24,
   },
   loginSection: {
     alignItems: 'center',
-    marginTop: 32,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    paddingVertical: 16,
   },
   loginText: {
-    color: '#666',
-    marginBottom: 12,
+    fontSize: 16,
+    color: '#666666',
+    marginBottom: 8,
   },
   loginButton: {
-    minWidth: 120,
+    marginTop: 4,
   },
 })
 
 export default RoleSelectionScreen
-
