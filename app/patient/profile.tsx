@@ -71,21 +71,8 @@ const PatientProfileScreen: React.FC = () => {
   }
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
-          style: 'destructive',
-          onPress: async () => {
-            await signOut()
-            router.push('/auth/login')
-          }
-        }
-      ]
-    )
+    await signOut()
+    router.push('/auth/login')
   }
 
   if (!patient) {
@@ -102,7 +89,7 @@ const PatientProfileScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -110,7 +97,7 @@ const PatientProfileScreen: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.title}>My Profile</Text>
         {!editing && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.editIconButton}
             onPress={() => setEditing(true)}
           >
@@ -119,7 +106,7 @@ const PatientProfileScreen: React.FC = () => {
         )}
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -144,7 +131,7 @@ const PatientProfileScreen: React.FC = () => {
         {/* Contact Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
-          
+
           {editing ? (
             <>
               <CleanTextInput
@@ -191,7 +178,7 @@ const PatientProfileScreen: React.FC = () => {
         {/* Emergency Contact */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Emergency Contact</Text>
-          
+
           {editing ? (
             <>
               <CleanTextInput
@@ -241,7 +228,7 @@ const PatientProfileScreen: React.FC = () => {
         {/* Medical Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Medical Information</Text>
-          
+
           {editing ? (
             <>
               <CleanTextInput
@@ -280,7 +267,7 @@ const PatientProfileScreen: React.FC = () => {
                   {medicalHistory || 'No medical history recorded'}
                 </Text>
               </View>
-              
+
               <View style={styles.medicalSection}>
                 <View style={styles.medicalHeader}>
                   <MaterialIcons name="warning" size={20} color="#FF9800" />
@@ -290,7 +277,7 @@ const PatientProfileScreen: React.FC = () => {
                   {allergies || 'No known allergies'}
                 </Text>
               </View>
-              
+
               <View style={styles.medicalSection}>
                 <View style={styles.medicalHeader}>
                   <MaterialIcons name="medication" size={20} color="#4CAF50" />
