@@ -143,7 +143,7 @@ const AddVitalsScreen: React.FC = () => {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333333" />
+          <MaterialIcons name="arrow-back" size={20} color="#333333" />
         </TouchableOpacity>
         <Text style={styles.title}>Add Vitals Entry</Text>
       </View>
@@ -280,8 +280,8 @@ const AddVitalsScreen: React.FC = () => {
             onPress={handleSaveEntry}
             loading={loading}
             disabled={loading}
-            style={styles.saveButton}
-            contentStyle={styles.buttonContent}
+            style={styles.cancelButton}
+           textColor='white'
             buttonColor="#4285F4"
           >
             {loading ? 'Saving...' : 'Save Entry'}
@@ -289,12 +289,13 @@ const AddVitalsScreen: React.FC = () => {
 
           <Button
             mode="outlined"
-            onPress={() => router.back()}
+            onPress={() =>{} }
             disabled={loading}
             style={styles.cancelButton}
-            textColor="#666666"
+            textColor="white"
+            buttonColor='orange'
           >
-            Cancel
+            Start AI Diagnosis
           </Button>
         </View>
       </ScrollView>
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     color: '#333333',
     flex: 1,
@@ -361,6 +362,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionButtons: {
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 24,
     gap: 12,
   },
@@ -373,6 +377,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     borderRadius: 12,
     borderColor: '#E8E8E8',
+    width:'50%'
   },
 })
 

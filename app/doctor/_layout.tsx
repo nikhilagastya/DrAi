@@ -42,15 +42,16 @@ export default function DoctorLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#4CAF50',
-        tabBarInactiveTintColor: 'gray',
-        headerStyle: {
-          backgroundColor: '#4CAF50',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false,
+        // tabBarActiveTintColor: '#4CAF50',
+        // tabBarInactiveTintColor: 'gray',
+        // headerStyle: {
+        //   backgroundColor: '#4CAF50',
+        // },
+        // headerTintColor: '#fff',
+        // headerTitleStyle: {
+        //   fontWeight: 'bold',
+        // },
       }}
     >
       <Tabs.Screen
