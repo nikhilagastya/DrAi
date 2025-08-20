@@ -42,15 +42,16 @@ export default function DoctorLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#4CAF50',
-        tabBarInactiveTintColor: 'gray',
-        headerStyle: {
-          backgroundColor: '#4CAF50',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false,
+        // tabBarActiveTintColor: '#4CAF50',
+        // tabBarInactiveTintColor: 'gray',
+        // headerStyle: {
+        //   backgroundColor: '#4CAF50',
+        // },
+        // headerTintColor: '#fff',
+        // headerTitleStyle: {
+        //   fontWeight: 'bold',
+        // },
       }}
     >
       <Tabs.Screen
@@ -74,19 +75,14 @@ export default function DoctorLayout() {
       <Tabs.Screen
         name="visit-form"
         options={{
-          title: 'New Visit',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="add-circle" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
+          
         }}
       />
       <Tabs.Screen
         name="ai-chat-room"
         options={{
-          title: 'AI Diagnosis',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen

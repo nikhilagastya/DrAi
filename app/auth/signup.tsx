@@ -1,13 +1,24 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, ScrollView, Alert } from 'react-native'
-import { TextInput, Button, Text, Card, SegmentedButtons } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, Alert, Dimensions, TouchableOpacity } from 'react-native'
+import { TextInput, Button, Text, SegmentedButtons } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
+import CleanTextInput from '~/components/input/cleanTextInput'
+
+const { width } = Dimensions.get('window')
 
 const SignUpScreen: React.FC = () => {
-  const { role } = useLocalSearchParams<{ role: string }>()
+  // ⭐ changed: read more params and compute helpers
+  const { role, as, return: returnToParam } = useLocalSearchParams<{
+    role: string;
+    as?: string;
+    return?: string;
+  }>()
+  const returnTo = typeof returnToParam === 'string' ? returnToParam : undefined
+  const launchedByDoctor = as === 'doctor'
+
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -107,7 +118,7 @@ const SignUpScreen: React.FC = () => {
 
       // Add role-specific fields
       if (role === 'patient') {
-        userData.age = age.trim()  // Keep as string, will be converted in function
+        userData.age = age.trim()
         userData.gender = gender
         userData.address = address.trim() || null
         userData.emergencyContactName = emergencyContactName.trim() || null
@@ -120,7 +131,7 @@ const SignUpScreen: React.FC = () => {
         userData.licenseNumber = licenseNumber.trim()
         userData.yearsOfExperience = yearsOfExperience.trim() || null
       } else if (role === 'admin') {
-        userData.permissions = [] // Default empty permissions
+        userData.permissions = []
       }
 
       console.log('Signup attempt:', { email: email.trim(), role, userData })
@@ -129,10 +140,7 @@ const SignUpScreen: React.FC = () => {
 
       if (error) {
         console.error('Signup error:', error)
-        
-        // Provide more specific error messages
         let errorMessage = 'Account creation failed'
-        
         if (error.message?.includes('email')) {
           errorMessage = 'Email is already registered or invalid'
         } else if (error.message?.includes('password')) {
@@ -142,19 +150,22 @@ const SignUpScreen: React.FC = () => {
         } else if (error.message) {
           errorMessage = error.message
         }
-        
         Alert.alert('Sign Up Failed', errorMessage)
       } else {
-        Alert.alert(
-          'Success', 
-          'Account created successfully! Please check your email for verification, then sign in.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.push('/auth/login')
-            }
-          ]
-        )
+        // ⭐ changed: different success flow when launched by a doctor
+        if (launchedByDoctor) {
+          Alert.alert(
+            'Success',
+            'Patient account created. They can now sign in from the patient app.',
+            [{ text: 'OK', onPress: () => router.replace(returnTo || '/doctor') }]
+          )
+        } else {
+          Alert.alert(
+            'Success',
+            'Account created successfully! Please check your email for verification, then sign in.',
+            [{ text: 'OK', onPress: () => router.push('/auth/login') }]
+          )
+        }
       }
     } catch (error) {
       console.error('Unexpected signup error:', error)
@@ -166,321 +177,250 @@ const SignUpScreen: React.FC = () => {
 
   const getRoleText = () => {
     switch (role) {
-      case 'patient': return 'Patient Registration'
-      case 'field_doctor': return 'Doctor Registration'
-      case 'admin': return 'Administrator Registration'
-      default: return 'Registration'
-    }
-  }
-
-  const getRoleIcon = () => {
-    switch (role) {
-      case 'patient': return 'person'
-      case 'field_doctor': return 'medical-services'
-      case 'admin': return 'admin-panel-settings'
-      default: return 'person-add'
+      case 'patient': return 'Patient Sign Up'
+      case 'field_doctor': return 'Doctor Sign Up'
+      case 'admin': return 'Admin Sign Up'
+      default: return 'Sign Up'
     }
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <MaterialIcons name={getRoleIcon()} size={64} color="#2196F3" />
-          <Text style={styles.titleText}>{getRoleText()}</Text>
-          <Text style={styles.subText}>
-            Create your account to get started
-          </Text>
-        </View>
+      <View style={styles.header}>
+        {/* ⭐ changed: smarter back behavior when launched by doctor */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => {
+            if (launchedByDoctor && returnTo) {
+              router.replace(returnTo)
+            } else {
+              router.push('/auth/role-selection')
+            }
+          }}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333333" />
+        </TouchableOpacity>
+        <Text style={styles.title}>{getRoleText()}</Text>
+      </View>
 
-        <Card style={styles.formCard}>
-          <Card.Content style={styles.formContent}>
-            {/* Common Fields */}
-            <TextInput
-              label="Full Name *"
-              value={name}
-              onChangeText={setName}
-              mode="outlined"
-              style={styles.input}
-              left={<TextInput.Icon icon="account" />}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Basic Information */}
+        <CleanTextInput
+          label="Full Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter full name"
+          autoCapitalize="words"
+        />
+
+        <CleanTextInput
+          label="Email Address"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter email address"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+
+        <CleanTextInput
+          label="Phone Number"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Enter phone number"
+          keyboardType="phone-pad"
+        />
+
+        <CleanTextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter password"
+          secureTextEntry={!showPassword}
+          right={
+            <TextInput.Icon 
+              icon={showPassword ? "eye-off" : "eye"} 
+              onPress={() => setShowPassword(!showPassword)}
+              iconColor="#999999"
+            />
+          }
+        />
+
+        <CleanTextInput
+          label="Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          placeholder="Confirm password"
+          secureTextEntry={!showPassword}
+        />
+
+        {/* Patient-specific fields */}
+        {role === 'patient' && (
+          <>
+            <CleanTextInput
+              label="Age"
+              value={age}
+              onChangeText={setAge}
+              placeholder="Enter your age"
+              keyboardType="numeric"
+            />
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Gender</Text>
+              <SegmentedButtons
+                value={gender}
+                onValueChange={setGender}
+                buttons={genderOptions.map(option => ({
+                  ...option,
+                  style: { 
+                    backgroundColor: gender === option.value ? '#4285F4' : '#FFFFFF',
+                    borderColor: '#E8E8E8'
+                  }
+                }))}
+                style={styles.segmentedButtons}
+                theme={{
+                  colors: {
+                    secondaryContainer: '#4285F4',
+                    onSecondaryContainer: '#FFFFFF',
+                  }
+                }}
+              />
+            </View>
+
+            <CleanTextInput
+              label="Address"
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Enter your address"
+              multiline
+              numberOfLines={2}
+            />
+
+            <CleanTextInput
+              label="Emergency Contact Name"
+              value={emergencyContactName}
+              onChangeText={setEmergencyContactName}
+              placeholder="Enter emergency contact name"
               autoCapitalize="words"
             />
 
-            <TextInput
-              label="Email *"
-              value={email}
-              onChangeText={setEmail}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              style={styles.input}
-              left={<TextInput.Icon icon="email" />}
-            />
-
-            <TextInput
-              label="Phone"
-              value={phone}
-              onChangeText={setPhone}
-              mode="outlined"
+            <CleanTextInput
+              label="Emergency Contact Phone"
+              value={emergencyContactPhone}
+              onChangeText={setEmergencyContactPhone}
+              placeholder="Enter emergency contact phone"
               keyboardType="phone-pad"
-              style={styles.input}
-              left={<TextInput.Icon icon="phone" />}
             />
 
-            <TextInput
-              label="Password *"
-              value={password}
-              onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry={!showPassword}
-              style={styles.input}
-              left={<TextInput.Icon icon="lock" />}
-              right={
-                <TextInput.Icon
-                  icon={showPassword ? "eye-off" : "eye"}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
+            <CleanTextInput
+              label="Medical History"
+              value={medicalHistory}
+              onChangeText={setMedicalHistory}
+              placeholder="Any past medical conditions, surgeries, etc."
+              multiline
+              numberOfLines={3}
             />
 
-            <TextInput
-              label="Confirm Password *"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              mode="outlined"
-              secureTextEntry={!showPassword}
-              style={styles.input}
-              left={<TextInput.Icon icon="lock-check" />}
+            <CleanTextInput
+              label="Known Allergies"
+              value={allergies}
+              onChangeText={setAllergies}
+              placeholder="Food, drug, or environmental allergies"
+              multiline
+              numberOfLines={2}
             />
 
-            {/* Patient-specific fields */}
-            {role === 'patient' && (
-              <>
-                <TextInput
-                  label="Age *"
-                  value={age}
-                  onChangeText={setAge}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="calendar" />}
-                  placeholder="Enter your age"
-                />
+            <CleanTextInput
+              label="Current Medications"
+              value={currentMedications}
+              onChangeText={setCurrentMedications}
+              placeholder="List any medications you're currently taking"
+              multiline
+              numberOfLines={2}
+            />
+          </>
+        )}
 
-                <View style={styles.genderContainer}>
-                  <Text style={styles.genderLabel}>Gender</Text>
-                  <SegmentedButtons
-                    value={gender}
-                    onValueChange={setGender}
-                    buttons={genderOptions}
-                    style={styles.genderButtons}
-                  />
-                </View>
+        {/* Doctor-specific fields */}
+        {role === 'field_doctor' && (
+          <>
+            <CleanTextInput
+              label="Specialization"
+              value={specialization}
+              onChangeText={setSpecialization}
+              placeholder="e.g., General Practice, Cardiology, etc."
+              autoCapitalize="words"
+            />
 
-                <TextInput
-                  label="Address"
-                  value={address}
-                  onChangeText={setAddress}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                  left={<TextInput.Icon icon="home" />}
-                />
+            <CleanTextInput
+              label="License Number"
+              value={licenseNumber}
+              onChangeText={setLicenseNumber}
+              placeholder="Your medical license number"
+            />
 
-                <TextInput
-                  label="Emergency Contact Name"
-                  value={emergencyContactName}
-                  onChangeText={setEmergencyContactName}
-                  mode="outlined"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="account-heart" />}
-                  autoCapitalize="words"
-                />
+            <CleanTextInput
+              label="Years of Experience"
+              value={yearsOfExperience}
+              onChangeText={setYearsOfExperience}
+              placeholder="Years of practice"
+              keyboardType="numeric"
+            />
+          </>
+        )}
 
-                <TextInput
-                  label="Emergency Contact Phone"
-                  value={emergencyContactPhone}
-                  onChangeText={setEmergencyContactPhone}
-                  mode="outlined"
-                  keyboardType="phone-pad"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="phone-alert" />}
-                />
+        <Button
+          mode="contained"
+          onPress={handleSignUp}
+          loading={loading}
+          disabled={loading}
+          style={styles.continueButton}
+          contentStyle={styles.buttonContent}
+          buttonColor="#4285F4"
+          textColor="#FFFFFF"
+        >
+          {loading ? 'Creating Account...' : 'Continue'}
+        </Button>
 
-                <TextInput
-                  label="Medical History"
-                  value={medicalHistory}
-                  onChangeText={setMedicalHistory}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={3}
-                  style={styles.input}
-                  left={<TextInput.Icon icon="file-document" />}
-                  placeholder="Any past medical conditions, surgeries, etc."
-                />
-
-                <TextInput
-                  label="Known Allergies"
-                  value={allergies}
-                  onChangeText={setAllergies}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                  left={<TextInput.Icon icon="alert-circle" />}
-                  placeholder="Food, drug, or environmental allergies"
-                />
-
-                <TextInput
-                  label="Current Medications"
-                  value={currentMedications}
-                  onChangeText={setCurrentMedications}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                  left={<TextInput.Icon icon="pill" />}
-                  placeholder="List any medications you're currently taking"
-                />
-              </>
-            )}
-
-            {/* Doctor-specific fields */}
-            {role === 'field_doctor' && (
-              <>
-                <TextInput
-                  label="Specialization *"
-                  value={specialization}
-                  onChangeText={setSpecialization}
-                  mode="outlined"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="medical-bag" />}
-                  placeholder="e.g., General Practice, Cardiology, etc."
-                  autoCapitalize="words"
-                />
-
-                <TextInput
-                  label="License Number *"
-                  value={licenseNumber}
-                  onChangeText={setLicenseNumber}
-                  mode="outlined"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="card-account-details" />}
-                  placeholder="Your medical license number"
-                />
-
-                <TextInput
-                  label="Years of Experience"
-                  value={yearsOfExperience}
-                  onChangeText={setYearsOfExperience}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="school" />}
-                  placeholder="Years of practice"
-                />
-              </>
-            )}
-
-            <Button
-              mode="contained"
-              onPress={handleSignUp}
-              loading={loading}
-              disabled={loading}
-              style={styles.signUpButton}
-              contentStyle={styles.buttonContent}
-            >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-
-            <Button
-              mode="text"
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Already have an account?{' '}
+            <Text 
+              style={styles.linkText}
               onPress={() => router.push('/auth/login')}
-              style={styles.loginButton}
-              disabled={loading}
             >
-              Already have an account? Sign In
-            </Button>
-
-            <Button
-              mode="text"
-              onPress={() => router.push('/auth/role-selection')}
-              style={styles.backButton}
-              disabled={loading}
-            >
-              Back to Role Selection
-            </Button>
-          </Card.Content>
-        </Card>
+              Sign In
+            </Text>
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 20,
-  },
-  titleText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
-  },
-  subText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  formCard: {
-    elevation: 4,
-    backgroundColor: '#fff',
-    marginBottom: 24,
-  },
-  formContent: {
-    padding: 24,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  genderContainer: {
-    marginBottom: 16,
-  },
-  genderLabel: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  genderButtons: {
-    marginBottom: 8,
-  },
-  signUpButton: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  buttonContent: {
-    paddingVertical: 8,
-  },
-  loginButton: {
-    marginTop: 8,
-  },
-  backButton: {
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFFFFF' },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  title: { fontSize: 24, fontWeight: '600', color: '#333333', flex: 1 },
+  content: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  inputContainer: { marginBottom: 20 },
+  inputLabel: { fontSize: 16, fontWeight: '500', color: '#333333', marginBottom: 8 },
+  input: { backgroundColor: '#FAFAFA', fontSize: 16 },
+  multilineInput: { paddingTop: 12 },
+  inputContent: { paddingHorizontal: 16, paddingVertical: 12 },
+  inputOutline: { borderColor: '#E8E8E8', borderWidth: 1, borderRadius: 8 },
+  segmentedButtons: { backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#E8E8E8' },
+  continueButton: { borderRadius: 12, marginTop: 20, marginBottom: 24, elevation: 0, shadowOpacity: 0 },
+  buttonContent: { paddingVertical: 12 },
+  footer: { alignItems: 'center', paddingVertical: 20 },
+  footerText: { fontSize: 16, color: '#666666', textAlign: 'center' },
+  linkText: { color: '#4285F4', fontWeight: '500' },
 })
 
 export default SignUpScreen

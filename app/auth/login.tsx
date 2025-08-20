@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, ScrollView, Alert } from 'react-native'
-import { TextInput, Button, Text, Card } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native'
+import { TextInput, Button, Text } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
+import CleanTextInput from '~/components/input/cleanTextInput'
+
+
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -30,7 +33,6 @@ const LoginScreen: React.FC = () => {
       }
 
       if (data?.user) {
-      
         console.log('Login successful, user:', data.user.email)
       }
     } catch (error) {
@@ -45,74 +47,104 @@ const LoginScreen: React.FC = () => {
     router.push('/auth/role-selection')
   }
 
+  
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <MaterialIcons name="local-hospital" size={64} color="#2196F3" />
-          <Text style={styles.titleText}>Welcome Back</Text>
-          <Text style={styles.subText}>
-            Sign in to your Healthcare App account
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={handleBackToRoles}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333333" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Sign In</Text>
+      </View>
+
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.welcomeSection}>
+          <View style={styles.iconContainer}>
+            <MaterialIcons name="local-hospital" size={48} color="#4285F4" />
+          </View>
+          <Text style={styles.welcomeTitle}>Welcome Back</Text>
+          <Text style={styles.welcomeSubtitle}>
+            Sign in to your DrAi account
           </Text>
         </View>
 
-        <Card style={styles.formCard}>
-          <Card.Content style={styles.formContent}>
-            <TextInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              style={styles.input}
-              left={<TextInput.Icon icon="email" />}
-            />
+        <View style={styles.formSection}>
+          <CleanTextInput
+            label="Email Address"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
 
-            <TextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry={!showPassword}
-              autoComplete="password"
-              style={styles.input}
-              left={<TextInput.Icon icon="lock" />}
-              right={
-                <TextInput.Icon
-                  icon={showPassword ? "eye-off" : "eye"}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
-            />
+          <CleanTextInput
+            label="Password"
+            value={password}
+            
+            onChangeText={setPassword}
+            placeholder="Enter your password"
+            secureTextEntry={!showPassword}
+            autoComplete="password"
+            right={
+              <TextInput.Icon
+                icon={showPassword ? "eye-off" : "eye"}
+                onPress={() => setShowPassword(!showPassword)}
+                iconColor="#999999"
+              />
+            }
+          />
 
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              loading={loading}
-              disabled={loading}
-              style={styles.loginButton}
-              contentStyle={styles.buttonContent}
-            >
-              Sign In
-            </Button>
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={loading}
+            style={styles.signInButton}
+            contentStyle={styles.buttonContent}
+            buttonColor="#4285F4"
+            textColor="#FFFFFF"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </Button>
 
-            <Button
-              mode="text"
+          <View style={styles.divider} />
+
+          <Text style={styles.signUpText}>
+            Don't have an account?{' '}
+            <Text 
+              style={styles.linkText}
               onPress={handleBackToRoles}
-              style={styles.backButton}
             >
-              Back to Role Selection
-            </Button>
-          </Card.Content>
-        </Card>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Don't have an account? Go back and select your role to sign up.
+              Create Account
+            </Text>
           </Text>
         </View>
+
+        {/* Social Login Options (placeholder for future implementation) */}
+        {/* <View style={styles.socialSection}>
+          <Text style={styles.orText}>Or</Text>
+          <View style={styles.socialButtons}>
+            <TouchableOpacity style={styles.socialButton}>
+              <MaterialIcons name="g-translate" size={24} color="#4285F4" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialButton}>
+              <MaterialIcons name="apple" size={24} color="#333333" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialButton}>
+              <MaterialIcons name="facebook" size={24} color="#1877F2" />
+            </TouchableOpacity>
+          </View>
+        </View> */}
       </ScrollView>
     </SafeAreaView>
   )
@@ -121,58 +153,134 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 20,
-  },
-  titleText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
-  },
-  subText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  formCard: {
-    elevation: 4,
-    backgroundColor: '#fff',
-    marginBottom: 24,
-  },
-  formContent: {
-    padding: 24,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  loginButton: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  buttonContent: {
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
-    marginTop: 8,
-  },
-  footer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FA',
     alignItems: 'center',
-    marginTop: 24,
+    justifyContent: 'center',
+    marginRight: 16,
   },
-  footerText: {
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333333',
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  welcomeSection: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: '#666666',
     textAlign: 'center',
-    color: '#666',
-    lineHeight: 20,
+    lineHeight: 24,
+  },
+  formSection: {
+    paddingVertical: 20,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#FAFAFA',
+    fontSize: 16,
+  },
+  inputContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputOutline: {
+    borderColor: '#E8E8E8',
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  signInButton: {
+    borderRadius: 12,
+    marginTop: 20,
+    marginBottom: 24,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  buttonContent: {
+    paddingVertical: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 24,
+  },
+  signUpText: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  linkText: {
+    color: '#4285F4',
+    fontWeight: '500',
+  },
+  socialSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  orText: {
+    fontSize: 16,
+    color: '#999999',
+    marginBottom: 24,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  socialButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
 })
 

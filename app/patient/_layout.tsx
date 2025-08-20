@@ -5,24 +5,21 @@ import { useAuth } from '../../contexts/AuthContext'
 import Loader from '~/components/Loader'
 
 export default function PatientLayout() {
-  // const { user, userRole, loading } = useAuth()
-  // const router = useRouter()
+  const { user, userRole, loading } = useAuth()
+  const router = useRouter()
 
-  // useEffect(() => {
-  //   if (!loading && (!user || !userRole || userRole.role !== 'patient')) {
-  //     // User is not authenticated or not a patient, redirect to auth
-  //     router.replace('/auth')
-  //   }
-  // }, [user, userRole, loading])
+  useEffect(() => {
+    if (!loading && (!user || !userRole || userRole.role !== 'patient')) {
+      // User is not authenticated or not a patient, redirect to auth
+      router.replace('/auth')
+    }
+  }, [user, userRole, loading])
 
 
-  // if (!user || !userRole || userRole.role !== 'patient') {
-  //   return null // Will redirect in useEffect
-  // }
- useEffect(() => {
-  console.log("hello")
-  router.push('/patient/profile') // Redirect to the main patient dashboard
- }, [])
+  if (!user || !userRole || userRole.role !== 'patient') {
+    return null // Will redirect in useEffect
+  }
+
  
 
   return (
@@ -96,9 +93,16 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="edit-visit"
         options={{
-          href: null, // Hide from tab bar
-        }}
+         href: null, // Hide from tab bar
+        } }
       />
+            <Tabs.Screen
+        name="AddVitals"
+        options={{
+         href: null, // Hide from tab bar
+        } }
+      />
+      
     </Tabs>
   )
 }

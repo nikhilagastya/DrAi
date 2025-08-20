@@ -203,7 +203,7 @@ export const getUserRole = async (userId: string): Promise<UserRole | null> => {
       .from('user_roles')
       .select('*')
       .eq('auth_user_id', userId)
-      .single()
+      .maybeSingle()
     
     if (error) {
       console.error('Error fetching user role:', error)

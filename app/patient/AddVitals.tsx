@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-nat
 import { Text, Button } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Patient } from '../../lib/supabase'
 import CleanTextInput from '~/components/input/cleanTextInput'
@@ -12,12 +12,7 @@ const AddVitalsScreen: React.FC = () => {
   const { userProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const params = useLocalSearchParams();
-
-
-const patient = params.patient
-  ? (JSON.parse(params.patient as string) as Patient)
-  : null;
+  const patient = userProfile as Patient
 
   // Vital signs
   const [weight, setWeight] = useState('')
@@ -29,9 +24,7 @@ const patient = params.patient
   const [bloodSugar, setBloodSugar] = useState('')
   const [oxygenSaturation, setOxygenSaturation] = useState('')
   const [respiratoryRate, setRespiratoryRate] = useState('')
-//  const vitalsParam = encodeURIComponent(JSON.stringify(vitalData))
-//     router.push(`/doctor/ai-chat-room?vitals=${vitalsParam}`)
-//   }
+
   // Symptoms and observations
   const [symptoms, setSymptoms] = useState('')
   const [observations, setObservations] = useState('')
@@ -96,31 +89,6 @@ const patient = params.patient
     return true
   }
 
-  const handleStartAIDiagnosis = async() => {
-    const data= await handleSaveEntry()
-    console.log(data.id,'ss')
-    if(data){
-    const vitalData = {
-      patient_id: patient?.id,
-      doctor_id: userProfile?.id,
-      weight: weight ? parseFloat(weight) : null,
-      height: height ? parseFloat(height) : null,
-      systolic_bp: systolicBp ? parseInt(systolicBp) : null,
-      diastolic_bp: diastolicBp ? parseInt(diastolicBp) : null,
-      heart_rate: heartRate ? parseInt(heartRate) : null,
-      temperature: temperature ? parseFloat(temperature) : null,
-      blood_sugar: bloodSugar ? parseFloat(bloodSugar) : null,
-      oxygen_saturation: oxygenSaturation ? parseInt(oxygenSaturation) : null,
-      respiratory_rate: respiratoryRate ? parseInt(respiratoryRate) : null,
-      symptoms: symptoms.trim() || null,
-      observations: observations.trim() || null,
-      visitId: data.id 
-    }
-  
-    const vitalsParam = encodeURIComponent(JSON.stringify(vitalData))
-    router.push(`/doctor/ai-chat-room?vitals=${vitalsParam}`)
-  }
-  }
   const handleSaveEntry = async () => {
     if (!validateForm()) return
 
@@ -129,9 +97,9 @@ const patient = params.patient
       // Prepare visit data as self-recorded entry
       const visitData = {
         patient_id: patient?.id,
-        doctor_id: userProfile?.id, // Self-recorded entry
+        doctor_id: null, // Self-recorded entry
         visit_date: new Date().toISOString(),
-        visit_type: 'in_person',
+        visit_type: 'self_recorded',
         weight: weight ? parseFloat(weight) : null,
         height: height ? parseFloat(height) : null,
         systolic_bp: systolicBp ? parseInt(systolicBp) : null,
@@ -145,17 +113,20 @@ const patient = params.patient
         treatment_notes: observations.trim() || null,
       }
 
-      const { data,error } = await supabase
+      const { error } = await supabase
         .from('visits')
         .insert(visitData)
-        .select().single()
 
       if (error) {
         Alert.alert('Error', 'Failed to save vitals entry')
         console.error('Error saving vitals:', error)
       } else {
-        return data
-        
+        Alert.alert('Success', 'Vitals entry saved successfully', [
+          {
+            text: 'OK',
+            onPress: () => router.back()
+          }
+        ])
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred')
@@ -172,7 +143,7 @@ const patient = params.patient
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <MaterialIcons name="arrow-back" size={20} color="#333333" />
+          <MaterialIcons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
         <Text style={styles.title}>Add Vitals Entry</Text>
       </View>
@@ -309,8 +280,8 @@ const patient = params.patient
             onPress={handleSaveEntry}
             loading={loading}
             disabled={loading}
-            style={styles.cancelButton}
-           textColor='white'
+            style={styles.saveButton}
+            contentStyle={styles.buttonContent}
             buttonColor="#4285F4"
           >
             {loading ? 'Saving...' : 'Save Entry'}
@@ -318,13 +289,12 @@ const patient = params.patient
 
           <Button
             mode="outlined"
-            onPress={() =>handleStartAIDiagnosis() }
+            onPress={() => router.back()}
             disabled={loading}
             style={styles.cancelButton}
-            textColor="white"
-            buttonColor='orange'
+            textColor="#666666"
           >
-            Start AI Diagnosis
+            Cancel
           </Button>
         </View>
       </ScrollView>
@@ -356,7 +326,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
     color: '#333333',
     flex: 1,
@@ -391,9 +361,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionButtons: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 24,
     gap: 12,
   },
@@ -406,7 +373,6 @@ const styles = StyleSheet.create({
   cancelButton: {
     borderRadius: 12,
     borderColor: '#E8E8E8',
-    width:'50%'
   },
 })
 
