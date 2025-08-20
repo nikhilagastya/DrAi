@@ -279,7 +279,7 @@ const PatientHomeScreen: React.FC = () => {
               </Text>
               <Button
                 mode="contained"
-                onPress={() => router.push('/patient/add-vitals')}
+                onPress={() => router.push('/patient/AddVitals')}
                 style={styles.addVitalsButton}
                 contentStyle={styles.buttonContent}
                 buttonColor="#4285F4"

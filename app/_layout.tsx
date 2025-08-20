@@ -3,6 +3,8 @@ import { Stack } from 'expo-router'
 import { Provider as PaperProvider } from 'react-native-paper'
 import { AuthProvider, useAuth } from '../contexts/AuthContext'
 import Loader from '~/components/Loader'
+import Toast from 'react-native-toast-message'
+import { toastConfig } from '~/utils/toast'
 
 // Custom theme for React Native Paper
 const theme = {
@@ -27,12 +29,17 @@ function RootLayoutNav() {
   // }
 
   return (
+    <>
+   
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen name="patient" options={{ headerShown: false }} />
       <Stack.Screen name="doctor" options={{ headerShown: false }} />
       <Stack.Screen name="admin" options={{ headerShown: false }} />
     </Stack>
+
+    <Toast config={toastConfig} />
+    </>
   )
 }
 
