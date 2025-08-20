@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, ScrollView, Alert } from 'react-native'
-import { Card, Title, Paragraph, Button, TextInput, Divider } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native'
+import { Text, ActivityIndicator } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, FieldDoctor } from '../../lib/supabase'
 import { router } from 'expo-router'
+import CleanTextInput from '~/components/input/cleanTextInput'
 
 const DoctorProfileScreen: React.FC = () => {
   const { userProfile, signOut, refreshProfile } = useAuth()
@@ -58,15 +59,32 @@ const DoctorProfileScreen: React.FC = () => {
   }
 
   const handleSignOut = async () => {
-    
-   signOut()
-   router.replace('/auth') // Redirect to auth screen after sign out
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => {
+            signOut()
+            router.replace('/auth')
+          },
+        },
+      ]
+    )
   }
+
   if (!doctor) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Paragraph>Loading profile...</Paragraph>
+          <ActivityIndicator size="large" color="#4285F4" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
     )
@@ -74,173 +92,225 @@ const DoctorProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <TouchableOpacity 
+          style={styles.editHeaderButton}
+          onPress={() => setEditing(!editing)}
+        >
+          <MaterialIcons 
+            name={editing ? "close" : "edit"} 
+            size={24} 
+            color="#4285F4" 
+          />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Header */}
-        <Card style={styles.headerCard}>
-          <Card.Content style={styles.headerContent}>
-            <View style={styles.avatarContainer}>
-              <MaterialIcons name="medical-services" size={80} color="#4CAF50" />
-            </View>
-            <Title style={styles.name}>Dr. {doctor.name}</Title>
-            <Paragraph style={styles.email}>{doctor.email}</Paragraph>
-            <View style={styles.basicInfo}>
-              <Paragraph style={styles.infoText}>
-                License: {doctor.license_number}
-              </Paragraph>
-            </View>
-          </Card.Content>
-        </Card>
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            <MaterialIcons name="person" size={48} color="#4285F4" />
+          </View>
+          <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
+          <Text style={styles.doctorEmail}>{doctor.email}</Text>
+          <View style={styles.licenseContainer}>
+            <MaterialIcons name="verified" size={16} color="#4CAF50" />
+            <Text style={styles.licenseText}>License: {doctor.license_number}</Text>
+          </View>
+        </View>
 
         {/* Professional Information */}
-        <Card style={styles.sectionCard}>
-          <Card.Content>
-            <Title style={styles.sectionTitle}>Professional Information</Title>
-            
-            {editing ? (
-              <TextInput
-                label="Specialization"
-                value={specialization}
-                onChangeText={setSpecialization}
-                mode="outlined"
-                style={styles.input}
-              />
-            ) : (
-              <View style={styles.infoRow}>
-                <MaterialIcons name="medical-bag" size={20} color="#666" />
-                <Paragraph style={styles.infoValue}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Professional Information</Text>
+          
+          <View style={styles.card}>
+            <View style={styles.fieldContainer}>
+              <View style={styles.fieldHeader}>
+                <MaterialIcons name="medical-information" size={20} color="#4285F4" />
+                <Text style={styles.fieldLabel}>Specialization</Text>
+              </View>
+              {editing ? (
+                <CleanTextInput
+                  label="Specialization"
+                  value={specialization}
+                  onChangeText={setSpecialization}
+                  placeholder="Enter your specialization"
+                  style={styles.input}
+                />
+              ) : (
+                <Text style={styles.fieldValue}>
                   {specialization || 'Not specified'}
-                </Paragraph>
-              </View>
-            )}
-
-            {editing ? (
-              <TextInput
-                label="Years of Experience"
-                value={yearsOfExperience}
-                onChangeText={setYearsOfExperience}
-                mode="outlined"
-                style={styles.input}
-                keyboardType="numeric"
-              />
-            ) : (
-              <View style={styles.infoRow}>
-                <MaterialIcons name="school" size={20} color="#666" />
-                <Paragraph style={styles.infoValue}>
-                  {yearsOfExperience ? `${yearsOfExperience} years` : 'Not specified'}
-                </Paragraph>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <MaterialIcons name="card-account-details" size={20} color="#666" />
-              <Paragraph style={styles.infoValue}>
-                License: {doctor.license_number}
-              </Paragraph>
+                </Text>
+              )}
             </View>
-          </Card.Content>
-        </Card>
+
+            <View style={styles.divider} />
+
+            <View style={styles.fieldContainer}>
+              <View style={styles.fieldHeader}>
+                <MaterialIcons name="school" size={20} color="#4285F4" />
+                <Text style={styles.fieldLabel}>Years of Experience</Text>
+              </View>
+              {editing ? (
+                <CleanTextInput
+                  label="Years of Experience"
+                  value={yearsOfExperience}
+                  onChangeText={setYearsOfExperience}
+                  placeholder="Enter years of experience"
+                  keyboardType="numeric"
+                  style={styles.input}
+                />
+              ) : (
+                <Text style={styles.fieldValue}>
+                  {yearsOfExperience ? `${yearsOfExperience} years` : 'Not specified'}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.fieldContainer}>
+              <View style={styles.fieldHeader}>
+                <MaterialIcons name="badge" size={20} color="#4285F4" />
+                <Text style={styles.fieldLabel}>Medical License</Text>
+              </View>
+              <Text style={styles.fieldValue}>{doctor.license_number}</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Contact Information */}
-        <Card style={styles.sectionCard}>
-          <Card.Content>
-            <Title style={styles.sectionTitle}>Contact Information</Title>
-            
-            {editing ? (
-              <TextInput
-                label="Phone"
-                value={phone}
-                onChangeText={setPhone}
-                mode="outlined"
-                style={styles.input}
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <View style={styles.infoRow}>
-                <MaterialIcons name="phone" size={20} color="#666" />
-                <Paragraph style={styles.infoValue}>{phone || 'Not provided'}</Paragraph>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+          
+          <View style={styles.card}>
+            <View style={styles.fieldContainer}>
+              <View style={styles.fieldHeader}>
+                <MaterialIcons name="phone" size={20} color="#4285F4" />
+                <Text style={styles.fieldLabel}>Phone Number</Text>
               </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <MaterialIcons name="email" size={20} color="#666" />
-              <Paragraph style={styles.infoValue}>{doctor.email}</Paragraph>
+              {editing ? (
+                <CleanTextInput
+                  label="Phone Number"
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter your phone number"
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                />
+              ) : (
+                <Text style={styles.fieldValue}>
+                  {phone || 'Not provided'}
+                </Text>
+              )}
             </View>
-          </Card.Content>
-        </Card>
+
+            <View style={styles.divider} />
+
+            <View style={styles.fieldContainer}>
+              <View style={styles.fieldHeader}>
+                <MaterialIcons name="email" size={20} color="#4285F4" />
+                <Text style={styles.fieldLabel}>Email Address</Text>
+              </View>
+              <Text style={styles.fieldValue}>{doctor.email}</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Practice Statistics */}
-        <Card style={styles.sectionCard}>
-          <Card.Content>
-            <Title style={styles.sectionTitle}>Practice Overview</Title>
-            
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Practice Overview</Text>
+          
+          <View style={styles.card}>
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <MaterialIcons name="people" size={24} color="#2196F3" />
-                <Paragraph style={styles.statValue}>-</Paragraph>
-                <Paragraph style={styles.statLabel}>Total Patients</Paragraph>
+                <View style={[styles.statIcon, { backgroundColor: '#E3F2FD' }]}>
+                  <MaterialIcons name="people" size={24} color="#4285F4" />
+                </View>
+                <Text style={styles.statValue}>-</Text>
+                <Text style={styles.statLabel}>Total Patients</Text>
               </View>
               
               <View style={styles.statItem}>
-                <MaterialIcons name="event" size={24} color="#4CAF50" />
-                <Paragraph style={styles.statValue}>-</Paragraph>
-                <Paragraph style={styles.statLabel}>Visits This Month</Paragraph>
+                <View style={[styles.statIcon, { backgroundColor: '#E8F5E8' }]}>
+                  <MaterialIcons name="event" size={24} color="#4CAF50" />
+                </View>
+                <Text style={styles.statValue}>-</Text>
+                <Text style={styles.statLabel}>Visits This Month</Text>
               </View>
               
               <View style={styles.statItem}>
-                <MaterialIcons name="trending-up" size={24} color="#FF9800" />
-                <Paragraph style={styles.statValue}>-</Paragraph>
-                <Paragraph style={styles.statLabel}>Success Rate</Paragraph>
+                <View style={[styles.statIcon, { backgroundColor: '#FFF3E0' }]}>
+                  <MaterialIcons name="trending-up" size={24} color="#FF9800" />
+                </View>
+                <Text style={styles.statValue}>-</Text>
+                <Text style={styles.statLabel}>Success Rate</Text>
               </View>
             </View>
             
-            <Paragraph style={styles.statsNote}>
+            <Text style={styles.statsNote}>
               Statistics will be calculated based on your patient visits and outcomes.
-            </Paragraph>
-          </Card.Content>
-        </Card>
+            </Text>
+          </View>
+        </View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+        <View style={styles.actionSection}>
           {editing ? (
             <View style={styles.editingButtons}>
-              <Button
-                mode="contained"
+              <TouchableOpacity
+                style={[styles.primaryButton, loading && styles.disabledButton]}
                 onPress={handleSave}
-                loading={loading}
                 disabled={loading}
-                style={styles.saveButton}
               >
-                Save Changes
-              </Button>
-              <Button
-                mode="outlined"
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <MaterialIcons name="save" size={20} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>Save Changes</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.secondaryButton, loading && styles.disabledButton]}
                 onPress={handleCancel}
                 disabled={loading}
-                style={styles.cancelButton}
               >
-                Cancel
-              </Button>
+                <MaterialIcons name="close" size={20} color="#4285F4" />
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            <Button
-              mode="contained"
+            <TouchableOpacity
+              style={styles.primaryButton}
               onPress={() => setEditing(true)}
-              style={styles.editButton}
-              icon="pencil"
             >
-              Edit Profile
-            </Button>
+              <MaterialIcons name="edit" size={20} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
           )}
 
-          <Button
-            mode="outlined"
+          <TouchableOpacity
+            style={styles.dangerButton}
             onPress={handleSignOut}
-            style={styles.signOutButton}
-            textColor="#d32f2f"
-            icon="logout"
           >
-            Sign Out
-          </Button>
+            <MaterialIcons name="logout" size={20} color="#F44336" />
+            <Text style={styles.dangerButtonText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -250,111 +320,237 @@ const DoctorProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    padding: 16,
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 32,
   },
-  headerCard: {
-    marginBottom: 16,
-    elevation: 2,
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666666',
   },
-  headerContent: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  email: {
-    color: '#666',
-    marginBottom: 16,
-  },
-  basicInfo: {
-    alignItems: 'center',
-  },
-  infoText: {
-    color: '#666',
-  },
-  sectionCard: {
-    marginBottom: 16,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  infoRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  editHeaderButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: '#4285F4',
+  },
+  doctorName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  doctorEmail: {
+    fontSize: 16,
+    color: '#666666',
     marginBottom: 12,
   },
-  infoValue: {
-    marginLeft: 12,
-    flex: 1,
+  licenseContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  licenseText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  fieldContainer: {
+    paddingVertical: 4,
+  },
+  fieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginLeft: 8,
+  },
+  fieldValue: {
+    fontSize: 16,
+    color: '#666666',
+    marginLeft: 28,
+  },
+  input: {
+    marginLeft: 28,
+    marginBottom: 0,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 16,
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
   },
+  statIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#666666',
     textAlign: 'center',
-    marginTop: 4,
+    fontWeight: '500',
   },
   statsNote: {
     fontSize: 12,
-    color: '#999',
+    color: '#999999',
     textAlign: 'center',
     fontStyle: 'italic',
+    lineHeight: 16,
   },
-  actionButtons: {
-    marginTop: 16,
+  actionSection: {
+    marginTop: 8,
+    marginBottom: 32,
   },
   editingButtons: {
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  saveButton: {
-    marginBottom: 8,
-    backgroundColor: '#4CAF50',
+  primaryButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  cancelButton: {
-    marginBottom: 8,
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
-  editButton: {
-    marginBottom: 16,
-    backgroundColor: '#4CAF50',
+  secondaryButton: {
+    backgroundColor: '#F0F7FF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4285F4',
   },
-  signOutButton: {
-    borderColor: '#d32f2f',
+  secondaryButtonText: {
+    color: '#4285F4',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  dangerButton: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
+  dangerButtonText: {
+    color: '#F44336',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 })
 
 export default DoctorProfileScreen
-

@@ -304,12 +304,15 @@ const PatientSearchScreen: React.FC = () => {
       </ScrollView>
 
       {/* Sticky Create Patient Button */}
-      <FAB
-        icon="person-add"
+     
+        <FAB
         style={styles.fab}
-        onPress={handleCreatePatient}
+        onPress={() => handleCreatePatient}
         customSize={56}
         color="#FFFFFF"
+        icon={() => (
+          <Text style={{ fontSize: 28,marginLeft:5,marginTop:-5, fontWeight: "bold", color: "#FFFFFF" }}>+</Text>
+        )}
       />
     </SafeAreaView>
   )

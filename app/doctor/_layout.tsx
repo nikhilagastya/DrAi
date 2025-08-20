@@ -82,10 +82,7 @@ export default function DoctorLayout() {
       <Tabs.Screen
         name="ai-chat-room"
         options={{
-          title: 'AI Diagnosis',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="psychology" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen

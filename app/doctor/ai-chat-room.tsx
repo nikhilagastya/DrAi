@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Animated, TouchableOpacity, Dimensions } from 'react-native'
-import { TextInput, Button, Card, Text, ActivityIndicator, Chip, Divider } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native'
+import { Text, Button, ActivityIndicator } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, FieldDoctor, ChatMessage } from '../../lib/supabase'
-import { PanGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler'
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const DRAWER_WIDTH = SCREEN_WIDTH * 0.8
+import CleanTextInput from '~/components/input/cleanTextInput'
 
 interface VitalData {
   weight?: number
@@ -22,19 +19,12 @@ interface VitalData {
   oxygen_saturation?: number
   respiratory_rate?: number
   symptoms?: string
+  observations?: string
   patient_name?: string
   patient_age?: number
   patient_gender?: string
-  patient_id?: string
-}
-
-interface SessionInfo {
-  session_id: string
-  created_at: string
-  message_count: number
-  last_message: string
-  last_message_time: string
-  patient_name?: string
+  patient_id?: string;
+  visit_id?: string;
 }
 
 interface ChatBubbleProps {
@@ -52,22 +42,21 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isUser }) => {
 
   return (
     <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.aiMessage]}>
-      <Card style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
-        <Card.Content style={styles.messageContent}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>
-            {message.message}
-          </Text>
-          <Text style={[styles.messageTime, isUser ? styles.userTime : styles.aiTime]}>
-            {formatTime(message.timestamp)}
-          </Text>
-        </Card.Content>
-      </Card>
+      <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
+        <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>
+          {message.message}
+        </Text>
+        <Text style={[styles.messageTime, isUser ? styles.userTime : styles.aiTime]}>
+          {formatTime(message.timestamp)}
+        </Text>
+      </View>
     </View>
   )
 }
 
 const DoctorAIChatRoomScreen: React.FC = () => {
   const { userProfile } = useAuth()
+  const router = useRouter()
   const params = useLocalSearchParams<{ vitals?: string }>()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -75,11 +64,7 @@ const DoctorAIChatRoomScreen: React.FC = () => {
   const [initialLoading, setInitialLoading] = useState(true)
   const [vitalData, setVitalData] = useState<VitalData | null>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string>('')
-  const [sessions, setSessions] = useState<SessionInfo[]>([])
-  const [sessionsLoading, setSessionsLoading] = useState(false)
-  const [drawerVisible, setDrawerVisible] = useState(false)
   const scrollViewRef = useRef<ScrollView>(null)
-  const drawerTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current
 
   const doctor = userProfile as FieldDoctor
 
@@ -91,85 +76,8 @@ const DoctorAIChatRoomScreen: React.FC = () => {
     return `doctor_session_${doctor?.id}_${pid}_${timestamp}_${randomPart}`
   }
 
-  // Start a new session
-  const startNewSession = () => {
-    const newSessionId = generateSessionId(vitalData?.patient_id)
-    setCurrentSessionId(newSessionId)
-    setMessages([]) // Clear current messages
-    console.log('New doctor session started:', newSessionId)
-    return newSessionId
-  }
-
-  // Load all sessions for the doctor
-  // const loadSessions = async () => {
-  //   if (!doctor) return
-
-  //   setSessionsLoading(true)
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from('chat_messages')
-  //       .select(`
-  //         session_id, 
-  //         timestamp, 
-  //         message, 
-  //         role,
-  //         patient_id,
-  //         patients!inner(name)
-  //       `)
-  //       .eq('patient_id', vitalData?.patient_id)
-  //       .order('timestamp', { ascending: false })
-
-  //     if (error) {
-  //       console.error('Error loading doctor sessions:', error)
-  //       return
-  //     }
-
-  //     // Group messages by session_id and create session info
-  //     const sessionMap = new Map<string, SessionInfo>()
-
-  //     data?.forEach((message: any) => {
-  //       if (!message.session_id) return
-
-  //       if (!sessionMap.has(message.session_id)) {
-  //         sessionMap.set(message.session_id, {
-  //           session_id: message.session_id,
-  //           created_at: message.timestamp,
-  //           message_count: 0,
-  //           last_message: message.message,
-  //           last_message_time: message.timestamp,
-  //           patient_name: message.patients?.name || 'Unknown Patient',
-  //         })
-  //       }
-
-  //       const session = sessionMap.get(message.session_id)!
-  //       session.message_count++
-
-  //       // Update last message if this message is more recent
-  //       if (new Date(message.timestamp) > new Date(session.last_message_time)) {
-  //         session.last_message = message.message
-  //         session.last_message_time = message.timestamp
-  //       }
-
-  //       // Update created_at if this message is older (to get the actual session start)
-  //       if (new Date(message.timestamp) < new Date(session.created_at)) {
-  //         session.created_at = message.timestamp
-  //       }
-  //     })
-
-  //     const sessionsArray = Array.from(sessionMap.values())
-  //       .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime())
-
-  //     setSessions(sessionsArray)
-  //   } catch (error) {
-  //     console.error('Error loading doctor sessions:', error)
-  //   } finally {
-  //     setSessionsLoading(false)
-  //   }
-  // }
-
   useEffect(() => {
     initializeChat()
-    
   }, [])
 
   useEffect(() => {
@@ -177,13 +85,6 @@ const DoctorAIChatRoomScreen: React.FC = () => {
       scrollToBottom()
     }
   }, [messages])
-
-  useEffect(() => {
-    // Load chat history when session changes
-    if (currentSessionId) {
-      loadChatHistory()
-    }
-  }, [currentSessionId])
 
   const initializeChat = async () => {
     try {
@@ -223,6 +124,7 @@ const DoctorAIChatRoomScreen: React.FC = () => {
   }
 
   const sendContextToAI = async (vitals: VitalData, sessionId: string) => {
+    setLoading(true)
     try {
       // Create context message
       const contextMessage = createContextMessage(vitals)
@@ -273,8 +175,52 @@ Please analyze this data and provide initial diagnostic insights, potential conc
       console.log('AI context response:', data)
       
       if (data.success) {
-        // Reload chat history to get AI response
-        await loadChatHistory()
+        // Poll for the AI response with multiple attempts
+        let attempts = 0
+        const maxAttempts = 5
+        const pollInterval = 1500 // 1.5 seconds between attempts
+
+        const pollForResponse = async () => {
+          attempts++
+          console.log(`Polling for AI response, attempt ${attempts}`)
+          
+          try {
+            const { data: chatData, error } = await supabase
+              .from('chat_messages')
+              .select('*')
+              .eq('session_id', sessionId)
+              .order('timestamp', { ascending: true })
+
+            if (error) {
+              console.error('Error polling chat history:', error)
+              return
+            }
+
+            // Check if we have AI response (more than just the context message)
+            const aiMessages = chatData?.filter(msg => msg.role === 'ai') || []
+            
+            if (aiMessages.length > 0) {
+              console.log('AI response found, updating messages')
+              setMessages(chatData || [])
+              setLoading(false)
+              return
+            }
+
+            // Continue polling if no AI response yet and we haven't exceeded max attempts
+            if (attempts < maxAttempts) {
+              setTimeout(pollForResponse, pollInterval)
+            } else {
+              console.log('Max polling attempts reached, stopping')
+              setLoading(false)
+            }
+          } catch (pollError) {
+            console.error('Error during polling:', pollError)
+            setLoading(false)
+          }
+        }
+
+        // Start polling after initial delay
+        setTimeout(pollForResponse, pollInterval)
       } else {
         throw new Error(data.error || 'Failed to get AI response')
       }
@@ -289,24 +235,29 @@ Please analyze this data and provide initial diagnostic insights, potential conc
         message: `Hello Dr. ${doctor?.name}! I've received the patient data. How can I assist with the diagnosis?`,
         timestamp: new Date().toISOString(),
       }
-      setMessages([welcomeMessage])
+      setMessages(prev => [...prev, welcomeMessage])
+      setLoading(false)
     }
   }
 
-  const loadChatHistory = async () => {
-    if (!doctor || !currentSessionId) return
+  const loadChatHistory = async (sessionId?: string) => {
+    if (!doctor) return
+
+    const targetSessionId = sessionId || currentSessionId
+    if (!targetSessionId) return
 
     try {
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
-        .eq('session_id', currentSessionId)
+        .eq('session_id', targetSessionId)
         .order('timestamp', { ascending: true })
 
       if (error) {
         console.error('Error loading doctor chat history:', error)
       } else {
         setMessages(data || [])
+        console.log('Loaded chat history:', data?.length, 'messages')
       }
     } catch (error) {
       console.error('Error loading doctor chat history:', error)
@@ -354,6 +305,10 @@ Please analyze this data and provide initial diagnostic insights, potential conc
     
     if (vitals.symptoms) {
       context += `\n**Reported Symptoms:**\n${vitals.symptoms}\n`
+    }
+
+    if (vitals.observations) {
+      context += `\n**Clinical Observations:**\n${vitals.observations}\n`
     }
 
     return context
@@ -406,6 +361,7 @@ Please analyze this data and provide initial diagnostic insights, potential conc
           conversationHistory,
           sessionId: currentSessionId,
           vitalData: vitalData,
+          visitId: vitalData?.visit_id || null,
           doctorProfile: {
             name: doctor.name,
             specialization: doctor.specialization,
@@ -422,9 +378,56 @@ Please analyze this data and provide initial diagnostic insights, potential conc
       console.log('Doctor AI response:', data)
       
       if (data.success) {
-        // Reload chat history and sessions
-        await loadChatHistory()
-       
+        // Poll for the AI response with multiple attempts
+        let attempts = 0
+        const maxAttempts = 5
+        const pollInterval = 1500
+
+        const pollForResponse = async () => {
+          attempts++
+          console.log(`Polling for AI response, attempt ${attempts}`)
+          
+          try {
+            const { data: chatData, error } = await supabase
+              .from('chat_messages')
+              .select('*')
+              .eq('session_id', currentSessionId)
+              .order('timestamp', { ascending: true })
+
+            if (error) {
+              console.error('Error polling chat history:', error)
+              return
+            }
+
+            // Find the latest AI message that's newer than our user message
+            const latestMessages = chatData || []
+            const userMessageIndex = latestMessages.findIndex(msg => msg.message === userMessage && msg.role === 'user')
+            const hasNewAiResponse = latestMessages.some((msg, index) => 
+              msg.role === 'ai' && index > userMessageIndex
+            )
+            
+            if (hasNewAiResponse) {
+              console.log('New AI response found, updating messages')
+              setMessages(latestMessages)
+              setLoading(false)
+              return
+            }
+
+            // Continue polling if no new AI response yet
+            if (attempts < maxAttempts) {
+              setTimeout(pollForResponse, pollInterval)
+            } else {
+              console.log('Max polling attempts reached, stopping')
+              setLoading(false)
+            }
+          } catch (pollError) {
+            console.error('Error during polling:', pollError)
+            setLoading(false)
+          }
+        }
+
+        // Start polling after initial delay
+        setTimeout(pollForResponse, pollInterval)
       } else {
         throw new Error(data.error || 'Failed to get AI response')
       }
@@ -434,175 +437,101 @@ Please analyze this data and provide initial diagnostic insights, potential conc
 
       // Remove the temporary user message on error
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')))
-    } finally {
       setLoading(false)
     }
   }
 
-  const clearChat = () => {
-    Alert.alert(
-      'Clear Chat History',
-      'Are you sure you want to clear all chat messages? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('chat_messages')
-                .delete()
-                .eq('session_id', currentSessionId)
-
-              if (error) {
-                console.error('Error clearing doctor chat:', error)
-                Alert.alert('Error', 'Failed to clear chat history')
-              } else {
-                setMessages([])
-                setSessions([])
-                startNewSession()
-              }
-            } catch (error) {
-              console.error('Error clearing doctor chat:', error)
-              Alert.alert('Error', 'Failed to clear chat history')
-            }
-          },
-        },
-      ]
-    )
-  }
-
-  const handleNewSession = () => {
-    startNewSession()
-    setDrawerVisible(false)
-    Alert.alert('New Session', 'Started a new diagnostic consultation session!')
-  }
-
-  const switchToSession = (sessionId: string) => {
-    setCurrentSessionId(sessionId)
-    setDrawerVisible(false)
-    console.log('Switched to doctor session:', sessionId)
-  }
-
-  const toggleDrawer = () => {
-    setDrawerVisible(!drawerVisible)
-    Animated.timing(drawerTranslateX, {
-      toValue: drawerVisible ? -DRAWER_WIDTH : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start()
-  }
-
-  const handlePanGesture = (event: any) => {
-    const { translationX } = event.nativeEvent
-
-    if (translationX > 50 && !drawerVisible) {
-      // Swipe right to open drawer
-      setDrawerVisible(true)
-      Animated.timing(drawerTranslateX, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start()
-    } else if (translationX < -50 && drawerVisible) {
-      // Swipe left to close drawer
-      setDrawerVisible(false)
-      Animated.timing(drawerTranslateX, {
-        toValue: -DRAWER_WIDTH,
-        duration: 300,
-        useNativeDriver: true,
-      }).start()
+  const handleSubmit = () => {
+    if (!loading && inputText.trim()) {
+      sendMessage()
     }
   }
 
-  const formatSessionDate = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffInDays === 0) return 'Today'
-    if (diffInDays === 1) return 'Yesterday'
-    if (diffInDays < 7) return `${diffInDays} days ago`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const startNewSession = () => {
+    const newSessionId = generateSessionId(vitalData?.patient_id)
+    setCurrentSessionId(newSessionId)
+    setMessages([])
+    Alert.alert('New Session', 'Started a new diagnostic consultation session!')
+    console.log('New doctor session started:', newSessionId)
   }
 
   const renderVitalChips = () => {
     if (!vitalData) return null
 
-    const chips = []
+    const vitals = []
     
     if (vitalData.systolic_bp && vitalData.diastolic_bp) {
       const isHigh = vitalData.systolic_bp > 140 || vitalData.diastolic_bp > 90
-      chips.push(
-        <Chip
-          key="bp"
-          mode="outlined"
-          style={[styles.vitalChip, isHigh && styles.alertChip]}
-          compact
-        >
-          BP: {vitalData.systolic_bp}/{vitalData.diastolic_bp}
-        </Chip>
-      )
+      vitals.push({
+        label: `BP: ${vitalData.systolic_bp}/${vitalData.diastolic_bp}`,
+        alert: isHigh
+      })
     }
     
     if (vitalData.temperature) {
       const isHigh = vitalData.temperature > 37.5
-      chips.push(
-        <Chip
-          key="temp"
-          mode="outlined"
-          style={[styles.vitalChip, isHigh && styles.alertChip]}
-          compact
-        >
-          Temp: {vitalData.temperature}°C
-        </Chip>
-      )
+      vitals.push({
+        label: `Temp: ${vitalData.temperature}°C`,
+        alert: isHigh
+      })
     }
     
     if (vitalData.heart_rate) {
       const isAbnormal = vitalData.heart_rate > 100 || vitalData.heart_rate < 60
-      chips.push(
-        <Chip
-          key="hr"
-          mode="outlined"
-          style={[styles.vitalChip, isAbnormal && styles.alertChip]}
-          compact
-        >
-          HR: {vitalData.heart_rate}
-        </Chip>
-      )
+      vitals.push({
+        label: `HR: ${vitalData.heart_rate}`,
+        alert: isAbnormal
+      })
     }
 
-    return chips.length > 0 ? (
+    if (vitalData.oxygen_saturation) {
+      const isLow = vitalData.oxygen_saturation < 95
+      vitals.push({
+        label: `O₂: ${vitalData.oxygen_saturation}%`,
+        alert: isLow
+      })
+    }
+
+    return vitals.length > 0 ? (
       <View style={styles.vitalChipsContainer}>
-        <Text style={styles.vitalChipsTitle}>
-          Patient: {vitalData.patient_name || 'Unknown'} | Vitals:
-        </Text>
+        <View style={styles.patientInfo}>
+          <MaterialIcons name="person" size={16} color="#4285F4" />
+          <Text style={styles.patientName}>
+            {vitalData.patient_name || 'Unknown Patient'}
+          </Text>
+        </View>
         <View style={styles.vitalChips}>
-          {chips}
+          {vitals.map((vital, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.vitalChip,
+                vital.alert && styles.alertChip
+              ]}
+            >
+              <Text style={[styles.vitalText, vital.alert && styles.alertText]}>
+                {vital.label}
+              </Text>
+            </View>
+          ))}
         </View>
       </View>
     ) : null
   }
 
   const suggestedQuestions = [
-    "What's the most likely diagnosis based on these vitals?",
-    "What additional tests should I consider?",
-    "Are there any red flags I should be concerned about?",
-    "What treatment options would you recommend?",
-    "What should I monitor in follow-up visits?",
+    "What's the most likely diagnosis?",
+    "What tests should I order?",
+    "Any red flags to watch for?",
+    "Treatment recommendations?",
+    "Follow-up care needed?",
   ]
-
-  const handleSuggestedQuestion = (question: string) => {
-    setInputText(question)
-  }
 
   if (initialLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
+          <ActivityIndicator size="large" color="#4285F4" />
           <Text style={styles.loadingText}>Initializing diagnostic session...</Text>
         </View>
       </SafeAreaView>
@@ -611,193 +540,123 @@ Please analyze this data and provide initial diagnostic insights, potential conc
 
   return (
     <SafeAreaView style={styles.container}>
-      <GestureHandlerRootView>
-        <PanGestureHandler onGestureEvent={handlePanGesture}>
-          <Animated.View style={{ flex: 1 }}>
-            <KeyboardAvoidingView 
-              style={styles.keyboardAvoidingView} 
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            >
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={styles.headerInfo}>
-                  <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-                    <MaterialIcons name="menu" size={24} color="#4CAF50" />
-                  </TouchableOpacity>
-                  <MaterialIcons name="psychology" size={24} color="#4CAF50" />
-                  <Text style={styles.headerText}>AI Diagnostic Assistant</Text>
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#333333" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <MaterialIcons name="psychology" size={24} color="#4285F4" />
+            <Text style={styles.headerText}>AI Diagnostic Assistant</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.newSessionButton}
+            onPress={startNewSession}
+          >
+            <MaterialIcons name="add" size={24} color="#4285F4" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Vital Signs Chips */}
+        {renderVitalChips()}
+
+        {/* Messages */}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {messages.length === 0 && !loading ? (
+            <View style={styles.welcomeContainer}>
+              <View style={styles.welcomeIcon}>
+                <MaterialIcons name="psychology" size={48} color="#4285F4" />
+              </View>
+              <Text style={styles.welcomeText}>AI Diagnostic Assistant Ready</Text>
+              <Text style={styles.welcomeSubText}>
+                I can help you analyze patient data, suggest diagnoses, recommend tests, and provide treatment insights.
+              </Text>
+
+              <View style={styles.suggestedContainer}>
+                <Text style={styles.suggestedTitle}>Quick questions:</Text>
+                <View style={styles.suggestedGrid}>
+                  {suggestedQuestions.map((question, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestedChip}
+                      onPress={() => setInputText(question)}
+                    >
+                      <Text style={styles.suggestedText}>{question}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <View style={styles.headerActions}>
-                  <Button mode="text" compact onPress={handleNewSession} style={styles.headerButton}>
-                    New Session
-                  </Button>
-                  <Button mode="text" compact onPress={clearChat}>
-                    Clear
-                  </Button>
-                </View>
               </View>
+            </View>
+          ) : messages.length === 0 && loading ? (
+            <View style={styles.initialLoadingContainer}>
+              <ActivityIndicator size="large" color="#4285F4" />
+              <Text style={styles.initialLoadingText}>Sending patient data to AI...</Text>
+            </View>
+          ) : (
+            messages.map((message) => (
+              <ChatBubble
+                key={message.id}
+                message={message}
+                isUser={message.role === 'user'}
+              />
+            ))
+          )}
 
-              {/* Vital Signs Chips */}
-              {renderVitalChips()}
-              
-              {/* Session Info */}
-              <View style={styles.sessionInfo}>
-                <Text style={styles.sessionText}>
-                  Session: {currentSessionId.split('_').pop()?.substring(0, 8)}...
-                </Text>
+          {loading && (
+            <View style={styles.loadingMessage}>
+              <View style={styles.typingBubble}>
+                <ActivityIndicator size="small" color="#4285F4" />
+                <Text style={styles.typingText}>AI is analyzing patient data...</Text>
               </View>
+            </View>
+          )}
+        </ScrollView>
 
-              {/* Messages */}
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.messagesContainer}
-                contentContainerStyle={styles.messagesContent}
-              >
-                {messages.length === 0 ? (
-                  <View style={styles.welcomeContainer}>
-                    <MaterialIcons name="psychology" size={64} color="#ccc" />
-                    <Text style={styles.welcomeText}>AI Diagnostic Assistant Ready</Text>
-                    <Text style={styles.welcomeSubText}>
-                      I can help you analyze patient data, suggest diagnoses, recommend tests, and provide treatment insights.
-                    </Text>
-
-                    <View style={styles.suggestedContainer}>
-                      <Text style={styles.suggestedText}>Quick questions:</Text>
-                      {suggestedQuestions.map((question, index) => (
-                        <Chip
-                          key={index}
-                          mode="outlined"
-                          onPress={() => handleSuggestedQuestion(question)}
-                          style={styles.suggestedChip}
-                        >
-                          {question}
-                        </Chip>
-                      ))}
-                    </View>
-                  </View>
-                ) : (
-                  messages.map((message) => (
-                    <ChatBubble
-                      key={message.id}
-                      message={message}
-                      isUser={message.role === 'user'}
-                    />
-                  ))
-                )}
-
-                {loading && (
-                  <View style={styles.loadingMessage}>
-                    <Card style={styles.typingBubble}>
-                      <Card.Content style={styles.typingContent}>
-                        <ActivityIndicator size="small" color="#4CAF50" />
-                        <Text style={styles.typingText}>AI is analyzing patient data...</Text>
-                      </Card.Content>
-                    </Card>
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Input Area */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.textInput}
-                  value={inputText}
-                  onChangeText={setInputText}
-                  placeholder="Ask about diagnosis, treatment, or tests..."
-                  multiline
-                  maxLength={500}
-                  mode="outlined"
-                  disabled={loading}
-                  right={
-                    <TextInput.Icon
-                      icon="send"
-                      onPress={sendMessage}
-                      disabled={!inputText.trim() || loading}
-                    />
-                  }
-                />
-              </View>
-            </KeyboardAvoidingView>
-
-            {/* Session Drawer */}
-            <Animated.View
+        {/* Input Area */}
+        <View style={styles.inputContainer}>
+          <View style={styles.inputRow}>
+            <CleanTextInput
+              label=""
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Ask about diagnosis, treatment, or tests..."
+              multiline
+              numberOfLines={3}
+              style={styles.textInput}
+              onSubmitEditing={handleSubmit}
+              blurOnSubmit={false}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              onPress={sendMessage}
+              disabled={!inputText.trim() || loading}
               style={[
-                styles.drawer,
-                {
-                  transform: [{ translateX: drawerTranslateX }],
-                }
+                styles.sendButton,
+                (!inputText.trim() || loading) && styles.sendButtonDisabled
               ]}
             >
-              <View style={styles.drawerHeader}>
-                <Text style={styles.drawerText}>Consultation Sessions</Text>
-                <TouchableOpacity onPress={toggleDrawer}>
-                  <MaterialIcons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
-
-              <Divider />
-
-              <TouchableOpacity style={styles.newSessionButton} onPress={handleNewSession}>
-                <MaterialIcons name="add" size={20} color="#4CAF50" />
-                <Text style={styles.newSessionText}>Start New Consultation</Text>
-              </TouchableOpacity>
-
-              <Divider />
-
-              <ScrollView style={styles.sessionsList}>
-                {sessionsLoading ? (
-                  <View style={styles.sessionsLoading}>
-                    <ActivityIndicator size="small" color="#4CAF50" />
-                    <Text style={styles.loadingText}>Loading sessions...</Text>
-                  </View>
-                ) : sessions.length === 0 ? (
-                  <View style={styles.noSessions}>
-                    <Text style={styles.noSessionsText}>No previous consultations</Text>
-                  </View>
-                ) : (
-                  sessions.map((session) => (
-                    <TouchableOpacity
-                      key={session.session_id}
-                      style={[
-                        styles.sessionItem,
-                        currentSessionId === session.session_id && styles.activeSession
-                      ]}
-                      onPress={() => switchToSession(session.session_id)}
-                    >
-                      <View style={styles.sessionItemContent}>
-                        <Text style={styles.sessionDate}>
-                          {formatSessionDate(session.created_at)}
-                        </Text>
-                        <Text style={styles.sessionPatient}>
-                          Patient: {session.patient_name}
-                        </Text>
-                        <Text style={styles.sessionPreview} numberOfLines={2}>
-                          {session.last_message}
-                        </Text>
-                        <Text style={styles.sessionMeta}>
-                          {session.message_count} messages
-                        </Text>
-                      </View>
-                      {currentSessionId === session.session_id && (
-                        <MaterialIcons name="check-circle" size={20} color="#4CAF50" />
-                      )}
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
-            </Animated.View>
-
-            {/* Drawer Overlay */}
-            {drawerVisible && (
-              <TouchableOpacity
-                style={styles.overlay}
-                onPress={toggleDrawer}
-                activeOpacity={1}
+              <MaterialIcons 
+                name="send" 
+                size={24} 
+                color={(!inputText.trim() || loading) ? "#CCCCCC" : "#FFFFFF"} 
               />
-            )}
-          </Animated.View>
-        </PanGestureHandler>
-      </GestureHandlerRootView>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.inputHint}>Press Enter to send • Shift+Enter for new line</Text>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -805,7 +664,7 @@ Please analyze this data and provide initial diagnostic insights, potential conc
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -814,108 +673,168 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 32,
   },
   loadingText: {
     marginTop: 16,
-    color: '#666',
+    fontSize: 16,
+    color: '#666666',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E8E8E8',
   },
-  headerInfo: {
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  headerContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  menuButton: {
-    marginRight: 12,
-    padding: 4,
   },
   headerText: {
     marginLeft: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333333',
   },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  headerButton: {
-    marginRight: 8,
+  newSessionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vitalChipsContainer: {
-    backgroundColor: 'white',
-    padding: 16,
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E8E8E8',
   },
-  vitalChipsTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  patientInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
-    color: '#666',
+  },
+  patientName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginLeft: 6,
   },
   vitalChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   vitalChip: {
-    backgroundColor: '#E8F5E8',
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3F2FD',
   },
   alertChip: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FFB3B3',
   },
-  sessionInfo: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  sessionText: {
+  vitalText: {
     fontSize: 12,
-    color: '#666',
+    fontWeight: '500',
+    color: '#4285F4',
+  },
+  alertText: {
+    color: '#D32F2F',
   },
   messagesContainer: {
     flex: 1,
   },
   messagesContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   welcomeContainer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 40,
+  },
+  initialLoadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  initialLoadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  welcomeIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
   welcomeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
   },
   welcomeSubText: {
-    color: '#666',
+    fontSize: 16,
+    color: '#666666',
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-    paddingHorizontal: 16,
+    lineHeight: 24,
+    marginBottom: 32,
+    paddingHorizontal: 20,
   },
   suggestedContainer: {
-    marginTop: 24,
+    width: '100%',
     alignItems: 'center',
   },
-  suggestedText: {
-    fontWeight: 'bold',
-    marginBottom: 12,
+  suggestedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 16,
+  },
+  suggestedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
   },
   suggestedChip: {
-    marginVertical: 4,
-    marginHorizontal: 8,
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  suggestedText: {
+    fontSize: 12,
+    color: '#4285F4',
+    fontWeight: '500',
   },
   messageContainer: {
-    marginVertical: 4,
+    marginVertical: 6,
   },
   userMessage: {
     alignItems: 'flex-end',
@@ -925,155 +844,99 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '85%',
-    elevation: 2,
+    padding: 12,
+    borderRadius: 12,
   },
   userBubble: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4285F4',
   },
   aiBubble: {
-    backgroundColor: '#ffffff',
-  },
-  messageContent: {
-    padding: 12,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   userText: {
-    color: 'white',
+    color: '#FFFFFF',
   },
   aiText: {
-    color: '#333',
+    color: '#333333',
   },
   messageTime: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 6,
   },
   userTime: {
     color: 'rgba(255, 255, 255, 0.7)',
   },
   aiTime: {
-    color: '#666',
+    color: '#666666',
   },
   loadingMessage: {
     alignItems: 'flex-start',
-    marginVertical: 4,
+    marginVertical: 6,
   },
   typingBubble: {
-    backgroundColor: '#fff',
-    elevation: 1,
-  },
-  typingContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    backgroundColor: '#FAFAFA',
     paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   typingText: {
     marginLeft: 8,
-    color: '#666',
+    fontSize: 14,
+    color: '#666666',
   },
   inputContainer: {
-    padding: 16,
-    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#E8E8E8',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    marginBottom: 8,
   },
   textInput: {
-    maxHeight: 100,
+    flex: 1,
+    marginBottom: -25,
+    minHeight:60,
+    maxHeight: 120,
+    marginTop:10,
+   
   },
-  drawer: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: DRAWER_WIDTH,
-    backgroundColor: '#fff',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.25,
+  inputHint: {
+    fontSize: 12,
+    color: '#999999',
+    textAlign: 'center',
+  },
+  sendButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4285F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#4285F4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  drawerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f8f8',
-  },
-  drawerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  newSessionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#E8F5E8',
-  },
-  newSessionText: {
-    marginLeft: 8,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-  },
-  sessionsList: {
-    flex: 1,
-  },
-  sessionsLoading: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  noSessions: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  noSessionsText: {
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  sessionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  activeSession: {
-    backgroundColor: '#E8F5E8',
-  },
-  sessionItemContent: {
-    flex: 1,
-  },
-  sessionDate: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  sessionPatient: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4CAF50',
-    marginTop: 2,
-  },
-  sessionPreview: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  sessionMeta: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  sendButtonDisabled: {
+    backgroundColor: '#E8E8E8',
+    elevation: 0,
+    shadowOpacity: 0,
   },
 })
 

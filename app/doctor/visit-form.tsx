@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-nat
 import { Text, Button } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, Patient } from '../../lib/supabase'
 import CleanTextInput from '~/components/input/cleanTextInput'
@@ -12,7 +12,12 @@ const AddVitalsScreen: React.FC = () => {
   const { userProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const patient = userProfile as Patient
+  const params = useLocalSearchParams();
+
+
+const patient = params.patient
+  ? (JSON.parse(params.patient as string) as Patient)
+  : null;
 
   // Vital signs
   const [weight, setWeight] = useState('')
@@ -24,7 +29,9 @@ const AddVitalsScreen: React.FC = () => {
   const [bloodSugar, setBloodSugar] = useState('')
   const [oxygenSaturation, setOxygenSaturation] = useState('')
   const [respiratoryRate, setRespiratoryRate] = useState('')
-
+//  const vitalsParam = encodeURIComponent(JSON.stringify(vitalData))
+//     router.push(`/doctor/ai-chat-room?vitals=${vitalsParam}`)
+//   }
   // Symptoms and observations
   const [symptoms, setSymptoms] = useState('')
   const [observations, setObservations] = useState('')
@@ -89,6 +96,31 @@ const AddVitalsScreen: React.FC = () => {
     return true
   }
 
+  const handleStartAIDiagnosis = async() => {
+    const data= await handleSaveEntry()
+    console.log(data.id,'ss')
+    if(data){
+    const vitalData = {
+      patient_id: patient?.id,
+      doctor_id: userProfile?.id,
+      weight: weight ? parseFloat(weight) : null,
+      height: height ? parseFloat(height) : null,
+      systolic_bp: systolicBp ? parseInt(systolicBp) : null,
+      diastolic_bp: diastolicBp ? parseInt(diastolicBp) : null,
+      heart_rate: heartRate ? parseInt(heartRate) : null,
+      temperature: temperature ? parseFloat(temperature) : null,
+      blood_sugar: bloodSugar ? parseFloat(bloodSugar) : null,
+      oxygen_saturation: oxygenSaturation ? parseInt(oxygenSaturation) : null,
+      respiratory_rate: respiratoryRate ? parseInt(respiratoryRate) : null,
+      symptoms: symptoms.trim() || null,
+      observations: observations.trim() || null,
+      visitId: data.id 
+    }
+  
+    const vitalsParam = encodeURIComponent(JSON.stringify(vitalData))
+    router.push(`/doctor/ai-chat-room?vitals=${vitalsParam}`)
+  }
+  }
   const handleSaveEntry = async () => {
     if (!validateForm()) return
 
@@ -97,9 +129,9 @@ const AddVitalsScreen: React.FC = () => {
       // Prepare visit data as self-recorded entry
       const visitData = {
         patient_id: patient?.id,
-        doctor_id: null, // Self-recorded entry
+        doctor_id: userProfile?.id, // Self-recorded entry
         visit_date: new Date().toISOString(),
-        visit_type: 'self_recorded',
+        visit_type: 'in_person',
         weight: weight ? parseFloat(weight) : null,
         height: height ? parseFloat(height) : null,
         systolic_bp: systolicBp ? parseInt(systolicBp) : null,
@@ -113,20 +145,17 @@ const AddVitalsScreen: React.FC = () => {
         treatment_notes: observations.trim() || null,
       }
 
-      const { error } = await supabase
+      const { data,error } = await supabase
         .from('visits')
         .insert(visitData)
+        .select().single()
 
       if (error) {
         Alert.alert('Error', 'Failed to save vitals entry')
         console.error('Error saving vitals:', error)
       } else {
-        Alert.alert('Success', 'Vitals entry saved successfully', [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ])
+        return data
+        
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred')
@@ -289,7 +318,7 @@ const AddVitalsScreen: React.FC = () => {
 
           <Button
             mode="outlined"
-            onPress={() =>{} }
+            onPress={() =>handleStartAIDiagnosis() }
             disabled={loading}
             style={styles.cancelButton}
             textColor="white"
