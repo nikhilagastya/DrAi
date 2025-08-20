@@ -73,20 +73,18 @@ const PatientSearchScreen: React.FC = () => {
   }
 
   const handleStartDiagnosis = (patient: Patient) => {
-    // Navigate to visit form with selected patient
     const patientParam = encodeURIComponent(JSON.stringify(patient))
     router.push(`/doctor/visit-form?patient=${patientParam}`)
   }
 
   const handleViewTrends = (patient: Patient) => {
-    // Navigate to patient trends view
     const patientParam = encodeURIComponent(JSON.stringify(patient))
     router.push(`/doctor/patient-trends?patient=${patientParam}`)
   }
 
+  // ✅ Reuse the same signup flow we added on the dashboard
   const handleCreatePatient = () => {
-    // Navigate to patient creation form
-    router.push('/doctor/create-patient')
+    router.push('/auth/signup?role=patient&as=doctor&return=/doctor')
   }
 
   const getGenderIcon = (gender: string) => {
@@ -303,16 +301,18 @@ const PatientSearchScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      {/* Sticky Create Patient Button */}
-     
-        <FAB
+      {/* Sticky Create Patient Button (FAB) */}
+      <FAB
         style={styles.fab}
-        onPress={() => handleCreatePatient}
+        onPress={handleCreatePatient}           
         customSize={56}
         color="#FFFFFF"
         icon={() => (
-          <Text style={{ fontSize: 28,marginLeft:5,marginTop:-5, fontWeight: "bold", color: "#FFFFFF" }}>+</Text>
+          <Text style={{ fontSize: 28, marginLeft: 5, marginTop: -5, fontWeight: 'bold', color: '#FFFFFF' }}>
+            +
+          </Text>
         )}
+        accessibilityLabel="Create new patient"
       />
     </SafeAreaView>
   )
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingVertical: 24,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,

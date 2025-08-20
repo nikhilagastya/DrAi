@@ -238,11 +238,6 @@ const VisitDetailsModal: React.FC<VisitDetailsModalProps> = ({ visible, visit, o
               <Text style={styles.actionButtonText}>Edit Visit</Text>
             </TouchableOpacity>
             
-            {/* <TouchableOpacity style={styles.actionButton}>
-              <MaterialIcons name="chat" size={20} color="#4285F4" />
-              <Text style={styles.actionButtonText}>AI Consultation</Text>
-            </TouchableOpacity> */}
-            
             <TouchableOpacity style={styles.actionButton}>
               <MaterialIcons name="print" size={20} color="#4285F4" />
               <Text style={styles.actionButtonText}>Generate Report</Text>
@@ -493,7 +488,13 @@ const index: React.FC = () => {
               <Text style={styles.actionLabel}>Find Patient</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            {/* ⭐ changed: add navigation to signup with patient preset */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() =>
+                router.push('/auth/signup?role=patient&as=doctor&return=/doctor')
+              }
+            >
               <View style={[styles.actionIcon, { backgroundColor: '#FFF5F5' }]}>
                 <MaterialIcons name="add-circle-outline" size={28} color="#FF5722" />
               </View>
@@ -583,7 +584,7 @@ const index: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {recentVisits.length > 0 ? (
+        {recentVisits.length > 0 ? (
             <View style={styles.visitsContainer}>
               {recentVisits.map((visit, index) => (
                 <TouchableOpacity 
@@ -651,6 +652,7 @@ const index: React.FC = () => {
     </SafeAreaView>
   )
 }
+
 
 const styles = StyleSheet.create({
   container: {

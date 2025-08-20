@@ -9,11 +9,16 @@ import CleanTextInput from '~/components/input/cleanTextInput'
 
 const { width } = Dimensions.get('window')
 
-
-
-
 const SignUpScreen: React.FC = () => {
-  const { role } = useLocalSearchParams<{ role: string }>()
+  // ⭐ changed: read more params and compute helpers
+  const { role, as, return: returnToParam } = useLocalSearchParams<{
+    role: string;
+    as?: string;
+    return?: string;
+  }>()
+  const returnTo = typeof returnToParam === 'string' ? returnToParam : undefined
+  const launchedByDoctor = as === 'doctor'
+
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -147,13 +152,20 @@ const SignUpScreen: React.FC = () => {
         }
         Alert.alert('Sign Up Failed', errorMessage)
       } else {
-        Alert.alert(
-          'Success',
-          'Account created successfully! Please check your email for verification, then sign in.',
-          [
-            { text: 'OK', onPress: () => router.push('/auth/login') }
-          ]
-        )
+        // ⭐ changed: different success flow when launched by a doctor
+        if (launchedByDoctor) {
+          Alert.alert(
+            'Success',
+            'Patient account created. They can now sign in from the patient app.',
+            [{ text: 'OK', onPress: () => router.replace(returnTo || '/doctor') }]
+          )
+        } else {
+          Alert.alert(
+            'Success',
+            'Account created successfully! Please check your email for verification, then sign in.',
+            [{ text: 'OK', onPress: () => router.push('/auth/login') }]
+          )
+        }
       }
     } catch (error) {
       console.error('Unexpected signup error:', error)
@@ -175,9 +187,16 @@ const SignUpScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        {/* ⭐ changed: smarter back behavior when launched by doctor */}
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.push('/auth/role-selection')}
+          onPress={() => {
+            if (launchedByDoctor && returnTo) {
+              router.replace(returnTo)
+            } else {
+              router.push('/auth/role-selection')
+            }
+          }}
         >
           <MaterialIcons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
@@ -384,94 +403,24 @@ const SignUpScreen: React.FC = () => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333333',
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333333',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#FAFAFA',
-    fontSize: 16,
-  },
-  multilineInput: {
-    paddingTop: 12,
-  },
-  inputContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  inputOutline: {
-    borderColor: '#E8E8E8',
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  segmentedButtons: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  continueButton: {
-    borderRadius: 12,
-    marginTop: 20,
-    marginBottom: 24,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  buttonContent: {
-    paddingVertical: 12,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  footerText: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-  },
-  linkText: {
-    color: '#4285F4',
-    fontWeight: '500',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFFFFF' },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  title: { fontSize: 24, fontWeight: '600', color: '#333333', flex: 1 },
+  content: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  inputContainer: { marginBottom: 20 },
+  inputLabel: { fontSize: 16, fontWeight: '500', color: '#333333', marginBottom: 8 },
+  input: { backgroundColor: '#FAFAFA', fontSize: 16 },
+  multilineInput: { paddingTop: 12 },
+  inputContent: { paddingHorizontal: 16, paddingVertical: 12 },
+  inputOutline: { borderColor: '#E8E8E8', borderWidth: 1, borderRadius: 8 },
+  segmentedButtons: { backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#E8E8E8' },
+  continueButton: { borderRadius: 12, marginTop: 20, marginBottom: 24, elevation: 0, shadowOpacity: 0 },
+  buttonContent: { paddingVertical: 12 },
+  footer: { alignItems: 'center', paddingVertical: 20 },
+  footerText: { fontSize: 16, color: '#666666', textAlign: 'center' },
+  linkText: { color: '#4285F4', fontWeight: '500' },
 })
 
 export default SignUpScreen
